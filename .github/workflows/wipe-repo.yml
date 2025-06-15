@@ -1,7 +1,7 @@
 name: Wipe repository (keep .github)
 
 on:
-  workflow_dispatch:          # manual trigger from iOS Shortcut
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,27 +12,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out the branch chosen by the dispatch event
-      - name: Checkout
+      - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
 
-      # 2. Remove EVERYTHING tracked by Git except the .github folder
-      - name: Delete repository content except .github
+      - name: Delete everything except .github
+        shell: bash
         run: |
-          # Remove all tracked files/folders except .github/**
+          # 1) Remove all *tracked* files except those in .github/
           git ls-files -z | grep -vzE '^\.github/' | xargs -0 git rm -f
-          
-          # Remove *untracked* files/folders (build artefacts, etc.)
-          # but skip .github as well
-          find . -mindepth 1 -maxdepth 1 ! -name ".github" -exec rm -rf {} +
 
-      # 3. Commit & push the deletion
+          # 2) Remove *untracked* files/directories in repo root,
+          #    but spare .github/ and the .git repository directory
+          find . -mindepth 1 -maxdepth 1 \
+               ! -name '.github' \
+               ! -name '.git' \
+               -exec rm -rf {} +
+
       - name: Commit and push
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Proceed even if nothing needed deleting
           git commit -m "Delete repository content (except .github) via workflow-dispatch" || echo "Nothing to commit"
           git push origin HEAD:${{ github.ref_name }}
