@@ -1,0 +1,38 @@
+name: Wipe repository (keep .github)
+
+on:
+  workflow_dispatch:          # manual trigger from iOS Shortcut
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  wipe:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the branch chosen by the dispatch event
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      # 2. Remove EVERYTHING tracked by Git except the .github folder
+      - name: Delete repository content except .github
+        run: |
+          # Remove all tracked files/folders except .github/**
+          git ls-files -z | grep -vzE '^\.github/' | xargs -0 git rm -f
+          
+          # Remove *untracked* files/folders (build artefacts, etc.)
+          # but skip .github as well
+          find . -mindepth 1 -maxdepth 1 ! -name ".github" -exec rm -rf {} +
+
+      # 3. Commit & push the deletion
+      - name: Commit and push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Proceed even if nothing needed deleting
+          git commit -m "Delete repository content (except .github) via workflow-dispatch" || echo "Nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}
