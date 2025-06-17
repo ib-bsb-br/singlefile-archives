@@ -1,0 +1,234 @@
+<!DOCTYPE html> <html lang=en><!--
+ Page saved with SingleFile 
+ url: https://christianmahnke.de/en/post/configure-pagefind/ 
+ saved date: Tue Jun 17 2025 15:28:38 GMT-0300 (Brasilia Standard Time)
+--><meta charset=utf-8>
+<title>Extending Pagefind · Christian Mahnke</title>
+<meta name=author content="Christian Mahnke">
+<meta http-equiv=Content-Language content=en>
+<meta name=description content="Since this page needs a search, I had a look at Pagefind…">
+<meta property=og:type content=article><meta property=og:url content=https://christianmahnke.de/en/post/configure-pagefind/><meta property=og:title content="Extending Pagefind">
+<meta property=og:image content=https://christianmahnke.de/en/post/configure-pagefind/ogPreview.en_hu_a618871f6ff41330.jpg>
+<meta property=og:image:type content=image/jpeg>
+<meta property=og:image:width content=1200>
+<meta property=og:image:height content=630>
+<meta name=keywords content="Pagefind, Search, Pagefind">
+<meta name=generator content="Hugo 0.147.8">
+<meta name=projektemacher.org:build-date content="2025-06-17 14:25:05.313835207 +0000 UTC m=+131.507109016"><meta name=projektemacher.org:git-commit content>
+<meta name=viewport content="width=device-width, initial-scale=1.0, minimum-scale=1.0, user-scalable=no">
+<meta name=theme-color content=#5a120e>
+<link rel=alternate type=text/bibtex href=https://christianmahnke.de/en/post/configure-pagefind/citation.bib title="Christian Mahnke">
+<meta name=referrer content=no-referrer><link rel=canonical href=https://christianmahnke.de/en/post/configure-pagefind/><style>img[src="data:,"],source[src="data:,"]{display:none!important}</style><body class="section-post dir-postconfigure-pagefind"><script type=application/json data-single-file-options>{"saveUrl":"https://christianmahnke.de/en/post/configure-pagefind/","saveDate":1750184918760,"visitDate":1750184809615,"filenameTemplate":"%if-empty<{page-title}|No title> ({date-locale} {time-locale}).{filename-extension}","filenameReplacedCharacters":["~","+","?","%","*",":","|","\"","<",">","\\\\","\u0000-\u001f",""],"filenameReplacementCharacter":"_","filenameReplacementCharacters":["～","＋","？","％","＊","：","｜","＂","＜","＞","＼"],"filenameMaxLengthUnit":"bytes","filenameMaxLength":"192","replaceEmojisInFilename":true,"compressContent":false,"selfExtractingArchive":false,"extractDataFromPage":false,"referrer":"","title":"Extending Pagefind · Christian Mahnke","info":{"description":"Since this page needs a search, I had a look at Pagefind…","lang":"en","author":"Christian Mahnke","creator":"","publisher":"","heading":"Christian Mahnke"}}</script>
+ <a name=top></a>
+ <div class=page-wrapper>
+ <div class=main>
+ <header class="header header-main show-top-button" id=head data-sticky-class=sticky-top>
+ <div class=wrapper>
+ <label class=menu-open for=menu-toggle>
+ <i class=menu-open-icon></i>
+ </label>
+ <div class=menu>
+ <nav class="top top-menu">
+ <input type=checkbox id=menu-toggle value=on class=sf-hidden>
+ <label class="menu-button float-right sf-hidden" for=menu-toggle></label>
+ <ul class=navigation-list><li class="navigation-item navto-"><a class=navigation-link href=https://christianmahnke.de/en/ title=Focuses>Focuses<i class="link-icon sf-hidden"></i></a><li class="navigation-item navto-collections"><a class=navigation-link href=https://christianmahnke.de/en/collections title=Collections>Collections<i class="link-icon sf-hidden"></i></a><li class="navigation-item current navto-post"><a class=navigation-link href=https://christianmahnke.de/en/post title=Blog>Blog<i class="link-icon sf-hidden"></i></a><li class="navigation-item navto-links"><a class=navigation-link href=https://christianmahnke.de/en/links title=Links>Links<i class="link-icon sf-hidden"></i></a><li class="navigation-item navto-about"><a class=navigation-link href=https://christianmahnke.de/en/about title=About>About<i class="link-icon sf-hidden"></i></a><li class="navigation-item navto-search"><form action=https://christianmahnke.de/en/search/ class=search-form id=menu-search-form><input name=q type=text placeholder=Search class=search-input id=menu-search-input value><button type=submit class=search-button id=menu-search-button><i class=search-icon></i></button></form><li class="navigation-item lang">
+ <a href=https://christianmahnke.de/post/configure-pagefind/ title=Deutsch>Deutsch</a>
+ </ul>
+ </nav>
+ </div>
+ <div class=home-link>
+ <a href=https://christianmahnke.de/><h1 class="header-title sf-hidden">Christian Mahnke</h1></a>
+ </div></div>
+ <div class="header-spacer sf-hidden"></div>
+ <a href=#top>
+ <div class="backToTop sf-hidden"></div>
+ </a>
+</header>
+<div class="content-container single">
+ 
+<div class=post>
+ <div class=content>
+ <h1 class=post-title>Extending Pagefind</h1><div class=date>
+ <time class=post-data datetime=2025-05-30T17:33:44+02:00>Friday, May 30, 2025</time>
+ </div><div class=post-body><p>Since this page needs a search, I had a look at <a href=https://pagefind.app/ target=_blank>Pagefind</a>…</p>
+<p>…and even though I originally had reservations about the integrability and flexibility, a very good friend (and the advantages) persuaded me to give it a try.</p>
+<p>The advantages are quite simple:<br>
+My pages are basically static HTML, dynamic content is realised exclusively in the client in JavaScript (or TypeScript). Therefore, a search must also manage without a classic search server such as <a data-wikidata-entity=Q2858103 href=https://solr.apache.org/ target=_blank>Solr</a> or <a href=https://www.elastic.co/elasticsearch target=_blank>ElasticSearch</a>.<br>
+So far, I have been using <a href=https://www.fusejs.io/ target=_blank>Fuse.js</a> for the <a href=https://projektemacher.org/search/ target=_blank>Project Maker Search</a>, for which the entire index is saved in a JSON file and always transferred in full to the searching client. Another JavaScript search that also works in this way is <a href=https://lunrjs.com/ target=_blank>Lunr.js</a>.<br>
+This makes indexing itself quite fast, but does not scale properly if you want to index many pages, as the size of the data to be transferred scales linearly with the number of pages. There is also a solution here to reduce the amount of data to be transferred, see <a href=https://christianmahnke.de/en/post/json-compression/>article on JSON compression</a>, but in the end the (possibly mobile) client still needs all the data in memory.</p>
+<p>Pagefind works differently at this point, only the required fragments of the index are transferred. A more detailed description can be found on the homepage.<br>
+In addition, there are the relatively extensive options for enriching the index, which should also be used for this page.</p>
+<p>From my point of view, the biggest disadvantage is a rather questionable design decision regarding configurability: what is classically known as index fields is realised in Pagefind via HTML data attributes (i.e. about as flexible or cool as inline CSS) or the use of the API. A simple external configuration file is not (yet) provided.</p>
+<h2 id=pagefind-configuration>Pagefind configuration</h2>
+<p>The following settings can be made via the data attributes; a rough distinction can be made between markers and playable fields. All begin with <code>data-pagefind-</code>, omitted here for clarity:</p>
+<ul>
+<li>Marker
+<ul>
+<li><code>body</code> - The content to be indexed</li>
+<li><code>ignore</code> - Elements that can be ignored, e.g. headers, footers and menus, can optionally also be given a parameter</li>
+</ul>
+</li>
+<li>Field configuration
+<ul>
+<li><code>index-attrs</code> - attributes that are to be indexed</li>
+<li><code>weight</code> - Weighting of an element</li>
+<li><code>meta</code> - Additional metadata for a document, can include authors
+<ul>
+<li><code>image</code> - metadata about images</li>
+<li><code>title</code> - The element for the title</li>
+</ul>
+</li>
+<li><code>filter</code> - Filter, can be used e.g. for tags</li>
+</ul>
+</li>
+</ul>
+<h2 id=external-configuration>External configuration</h2>
+<p>As the configuration is element-specific, it can be separated quite easily from the input document. The comparison to inline CSS above is not accidental, as CSS selectors are the means of choice for cleanly separating content and indexing (instructions) here too. All that is needed is a data structure that combines the two. And therein lies the novelty of the approach presented.</p>
+<p>The basic structure is relatively simple: a list of CSS selectors can be assigned for each option above and parameters can then be specified depending on the type (see above).</p>
+<p>This example illustrates the assignment:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>files</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>output</span><span class=p>:</span><span class=w> </span><span class=l>docs/index</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>source</span><span class=p>:</span><span class=w> </span><span class=l>docs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>include</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'**/*.htm'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'**/*.html'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>exclude</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'tags/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'en/tags/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'post/page/*/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'en/post/page/*/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'search/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s1>'en/search/**'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>content</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ignore</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=s2>"&lt;meta http-equiv=\"refresh\" content=\"0; url="</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>index</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># Tagging attributes</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>body</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>.content-container</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ignore</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>header.header</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>footer.footer</span><span class=p>:</span><span class=w> </span><span class=l>all</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>script</span><span class=p>:</span><span class=w> </span><span class=l>all</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"div.menu": </span><span class=l>all</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>weight</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h1": </span><span class=m>7.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h2": </span><span class=m>6.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h3": </span><span class=m>5.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"a[data-wikidata-entity]": </span><span class=m>5.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h4": </span><span class=m>4.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h5": </span><span class=m>3.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>"h6": </span><span class=m>2.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># Index fields</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>meta</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>author</span><span class=p>:</span><span class=w> </span><span class=s1>'meta[name="author"]'</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>wikidata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>"a[data-wikidata-entity]": </span><span class=s2>"[data-wikidata-entity]"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>variants</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>"a[data-wikidata-entity]"</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>function</span><span class=p>:</span><span class=w> </span><span class=l>variants</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>lang</span><span class=p>:</span><span class=w> </span><span class=s2>"{lang}"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>title</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>h1.post-title</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>".section-head h1.section-head-title"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>date</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>".date time": </span><span class=s2>"[datetime]"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>"p, h1, h2"</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>function</span><span class=p>:</span><span class=w> </span><span class=l>generate_css_selector</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>".gallery .gallery-image.caption": </span><span class=s2>"[href]"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>"figure img": </span><span class=s2>"[src]"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>sort</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>date</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>".date time": </span><span class=s2>"[datetime]"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>filter</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>tag</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>".meta .tags a"</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>function</span><span class=p>:</span><span class=w> </span><span class=l>extract</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>pattern</span><span class=p>:</span><span class=w> </span><span class=s2>"s/#(.*)/$1/g"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>section</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>body</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>function</span><span class=p>:</span><span class=w> </span><span class=l>extract</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>attribute</span><span class=p>:</span><span class=w> </span><span class=s2>"class"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>pattern</span><span class=p>:</span><span class=w> </span><span class=s2>"s/.*section-(.[^ ]*).*/$1/g"</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>index-attrs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>a</span><span class=p>:</span><span class=w> </span><span class=s2>"[data-wikidata-entity]"</span><span class=w>
+</span></span></span></code></pre></div><p>In addition to the general functionality already explained, a few special features also become clear:</p>
+<ul>
+<li>General configuration of directories and patterns for including and excluding the files to be indexed</li>
+<li>Content-based filters for content, used here to exclude redirects</li>
+<li>Weightings are also assigned to elements with certain attributes</li>
+<li>Additional functions - these enable documents to be enriched with additional data. Examples can be a generated CSS selector that only addresses the input element, or typing of entities</li>
+</ul>
+<h2 id=implementation>Implementation</h2>
+<p>The example implementation uses the Python API from Pagefind, mainly because I already have experience with the Python library <a data-wikidata-entity=Q2893296 href=https://www.crummy.com/software/BeautifulSoup/ target=_blank>BeautifulSoup4</a>, which is used for selection using CSS selectors.</p>
+<h3 id=source-code>Source code</h3>
+<p>The source code is available as <a href=https://gist.github.com/cmahnke/5049d42cd6dabc19cfd6c85161947fa2 target=_blank>Gist</a>.</p>
+<h2 id=outlook>Outlook</h2>
+<p>The separation of content to be indexed and the configuration of the index now allows a few simple extensions that could massively increase the (re-)usability of the software:</p>
+<ul>
+<li><strong>Inline callbacks for CSS selectors</strong>
+If it is possible to execute functions or callbacks for elements found via CSS selectors, these could also further enrich the index. These callbacks could of course be exchanged, so simple preprocessing pipelines could be realised, as known from <a href=https://www.elastic.co/docs/reference/enrich-processor/pipeline-processor target=_blank>ElasticSearch</a>, for example
+<strong>Multiple output documents for one input document</strong>
+It is also conceivable to create several indexing documents for one input document. This has the advantage that individual document fragments can also be searched and addressed.</li>
+</ul>
+<p>If the configuration were realised in JavaScript (instead of YAML or JSON), the callbacks / plugins could also be defined or imported directly inline.</p></div>
+ </div><div class=post-footer><div class=spacer>
+ </div>
+ <div class=meta><div class=cite-container><details class=cite>
+ <summary class=cite_summary>
+ Cite this article
+ </summary><div class=cite-body>
+ <div class=cite-proposal>
+ <span class=cite-author>Mahnke, Christian</span> <span class=cite-year>(2025)</span>: <span class=cite-title>Extending Pagefind</span>. In: <a class=cite-source-link href=https://christianmahnke.de/>ChristianMahnke.de</a> [Weblog], May 30, 2025. Online publication: <a class=cite-link href=https://christianmahnke.de/post/configure-pagefind/>https://christianmahnke.de/post/configure-pagefind/</a>.
+ </div>
+ <a class=bibtex-download href=https://christianmahnke.de/en/post/configure-pagefind/citation.bib title="Download as BibTex">Download as BibTex</a>
+ </div>
+</details>
+</div><div class="tags-heading sf-hidden">Tags</div>
+ <div class=tags><a href=https://christianmahnke.de/en/tags/Search title=Search>#Search</a><a href=https://christianmahnke.de/en/tags/Pagefind title=Pagefind>#Pagefind</a></div>
+ </div>
+ </div>
+ 
+</div>
+ </div>
+ </div><footer class=footer role=contentinfo>
+ <div class=spacer></div>
+ <div class=content>
+ <div class=wrapper>
+ <div class=menu-wrapper>
+ <div class=footer-nav>
+ <h3 class=footer-nav>Navigation</h3>
+ <nav class="top top-menu">
+ <input type=checkbox id=menu-toggle value=on class=sf-hidden>
+ <label class="menu-button float-right" for=menu-toggle><i class=menu-icon></i></label>
+ <ul class=navigation-list><li class="navigation-item navto-"><a class=navigation-link href=https://christianmahnke.de/en/ title=Focuses>Focuses<i class=link-icon></i></a><li class="navigation-item navto-collections"><a class=navigation-link href=https://christianmahnke.de/en/collections title=Collections>Collections<i class=link-icon></i></a><li class="navigation-item current navto-post"><a class=navigation-link href=https://christianmahnke.de/en/post title=Blog>Blog<i class=link-icon></i></a><li class="navigation-item navto-links"><a class=navigation-link href=https://christianmahnke.de/en/links title=Links>Links<i class=link-icon></i></a><li class="navigation-item navto-about"><a class=navigation-link href=https://christianmahnke.de/en/about title=About>About<i class=link-icon></i></a><li class="navigation-item navto-search"><form action=https://christianmahnke.de/en/search/ class="search-form sf-hidden" id=menu-search-form></form><li class="navigation-item lang">
+ <a href=https://christianmahnke.de/post/configure-pagefind/ title=Deutsch>Deutsch</a>
+ </ul>
+ </nav>
+ </div>
+ </div>
+ <div class=link-wrapper>
+ <h3 class=footer-links>Links</h3>
+ <ul class=footer-links><li class=footer-link><a href=https://github.com/cmahnke target=_blank title=GitHub><div class="link-image github"></div>GitHub</a><li class=footer-link><a href=https://projektemacher.org/ target=_blank title=Projektemacher><img class="link-image projektemacher" alt="Projektemacher Logo" src=data:, data-sf-original-src=https://christianmahnke.de/images/laborant.svg>Projektemacher</a><li class=footer-link><a href=https://orcid.org/0009-0003-1361-4159 target=_blank title=ORCID><div class="link-image orcid"></div>0009-0003-1361-4159</a><li class=footer-link><a href=https://www.linkedin.com/in/cmahnke target=_blank title=LinkedIn><div class="link-image linkedin"></div>LinkedIn</a><li class=footer-link><a href=https://www.librarything.com/profile/cmahnke target=_blank title=LibraryThing><div class="link-image librarything"></div>LibraryThing</a><li class=footer-link><a href=https://openbiblio.social/@cmahnke rel=me target=_blank title=Mastodon><div class="link-image mastodon"></div>@cmahnke@openbiblio.social</a><li class=footer-link><a href=https://www.instagram.com/projektemacher/ target=_blank title=Instagram>Instagram</a><li class=footer-link><a href=https://term.museum-digital.de/md-de/persinst/322830 target=_blank title=museum:digital>museum:digital</a></ul>
+ </div>
+ <div class="footer-placeholder sf-hidden"></div>
+ <div class=contact-wrapper>
+ <h3 class=footer-contact>Contact</h3><div class=footer-contact><h4 class=contact-link>Mail</h4><a href=mailto:mail@christianmahnke.de title="Send eMail">mail@christianmahnke.de</a></div><h3 class=footer-privacy><a href=https://christianmahnke.de/privacy title="Privacy policy">Privacy policy</a></h3>
+ <h1 class=footer-title><img class="footer-icon sf-hidden" alt=Projektemacher.org src=data:,>Christian Mahnke</h1>
+ </div>
+ </div>
+ </div>
+ <div class=copyright><a href=https://christianmahnke.de/>© MMXXI - MMXXV Christian Mahnke</a>
+ <span class=icons-right><a href=https://projektemacher.org/><img class=icon alt=Projektemacher.org src=data:, data-sf-original-src=https://christianmahnke.de/images/cm.svg></a></span>
+ </div>
+</footer>
+</div>
+ 
+ 
+<div id=unhabit-root></div><single-file-infobar style="accent-color: initial !important; place-content: initial !important; place-items: initial !important; place-self: initial !important; alignment-baseline: initial !important; animation-composition: initial !important; animation: initial !important; appearance: initial !important; aspect-ratio: initial !important; backdrop-filter: initial !important; backface-visibility: initial !important; background: initial !important; background-blend-mode: initial !important; baseline-shift: initial !important; block-size: initial !important; border-block: initial !important; border: initial !important; border-radius: initial !important; border-collapse: initial !important; border-end-end-radius: initial !important; border-end-start-radius: initial !important; border-inline: initial !important; border-start-end-radius: initial !important; border-start-start-radius: initial !important; inset: initial !important; box-shadow: initial !important; box-sizing: initial !important; break-after: initial !important; break-before: initial !important; break-inside: initial !important; buffered-rendering: initial !important; caption-side: initial !important; caret-color: initial !important; clear: initial !important; clip: initial !important; clip-path: initial !important; clip-rule: initial !important; color: initial !important; color-interpolation: initial !important; color-interpolation-filters: initial !important; color-scheme: initial !important; column-count: initial !important; column-fill: initial !important; gap: initial !important; column-rule-color: initial !important; column-rule-style: initial !important; column-rule-width: initial !important; column-span: initial !important; column-width: initial !important; contain: initial !important; contain-intrinsic-block-size: initial !important; contain-intrinsic-size: initial !important; contain-intrinsic-inline-size: initial !important; container-name: initial !important; container-type: initial !important; content: initial !important; content-visibility: initial !important; counter-increment: initial !important; counter-reset: initial !important; counter-set: initial !important; cursor: initial !important; cx: initial !important; cy: initial !important; direction: initial !important; display: initial !important; dominant-baseline: initial !important; empty-cells: initial !important; fill: initial !important; fill-opacity: initial !important; fill-rule: initial !important; filter: initial !important; flex: initial !important; flex-flow: initial !important; float: initial !important; flood-color: initial !important; flood-opacity: initial !important; font-family: initial !important; font-feature-settings: initial !important; font-kerning: initial !important; font-optical-sizing: initial !important; font-palette: initial !important; font-size: initial !important; font-size-adjust: initial !important; font-style: initial !important; font-synthesis-small-caps: initial !important; font-synthesis-style: initial !important; font-synthesis-weight: initial !important; font-variant-alternates: initial !important; font-variant-caps: initial !important; font-variant-east-asian: initial !important; font-variant-ligatures: initial !important; font-variant-numeric: initial !important; font-variant-position: initial !important; font-variation-settings: initial !important; font-weight: initial !important; font-width: initial !important; glyph-orientation-horizontal: initial !important; glyph-orientation-vertical: initial !important; grid: initial !important; grid-column-end: initial !important; grid-column-start: initial !important; grid-row-end: initial !important; grid-row-start: initial !important; hanging-punctuation: initial !important; height: initial !important; hyphenate-character: initial !important; hyphens: initial !important; image-orientation: initial !important; image-rendering: initial !important; inline-size: initial !important; inset-block: initial !important; inset-inline: initial !important; isolation: initial !important; letter-spacing: initial !important; lighting-color: initial !important; line-break: initial !important; line-height: initial !important; list-style: initial !important; margin-block: initial !important; margin: initial !important; margin-inline: initial !important; margin-trim: initial !important; marker: initial !important; mask: initial !important; mask-composite: initial !important; mask-mode: initial !important; mask-size: initial !important; mask-type: initial !important; math-style: initial !important; max-block-size: initial !important; max-height: initial !important; max-inline-size: initial !important; max-width: initial !important; min-block-size: initial !important; min-height: initial !important; min-inline-size: initial !important; min-width: initial !important; mix-blend-mode: initial !important; object-fit: initial !important; object-position: initial !important; offset-anchor: initial !important; offset-distance: initial !important; offset-path: initial !important; offset-position: initial !important; offset-rotate: initial !important; opacity: initial !important; order: initial !important; orphans: initial !important; outline: initial !important; outline-offset: initial !important; overflow-wrap: initial !important; overflow: initial !important; overscroll-behavior-block: initial !important; overscroll-behavior-inline: initial !important; overscroll-behavior: initial !important; padding-block: initial !important; padding: initial !important; padding-inline: initial !important; paint-order: initial !important; perspective: initial !important; perspective-origin: initial !important; pointer-events: initial !important; position: initial !important; print-color-adjust: initial !important; quotes: initial !important; r: initial !important; resize: initial !important; rotate: initial !important; ruby-align: initial !important; ruby-overhang: initial !important; ruby-position: initial !important; rx: initial !important; ry: initial !important; scale: initial !important; scroll-behavior: initial !important; scroll-margin-block: initial !important; scroll-margin: initial !important; scroll-margin-inline: initial !important; scroll-padding-block: initial !important; scroll-padding: initial !important; scroll-padding-inline: initial !important; scroll-snap-align: initial !important; scroll-snap-stop: initial !important; scroll-snap-type: initial !important; scrollbar-gutter: initial !important; scrollbar-width: initial !important; shape-image-threshold: initial !important; shape-margin: initial !important; shape-outside: initial !important; shape-rendering: initial !important; speak-as: initial !important; stop-color: initial !important; stop-opacity: initial !important; stroke: initial !important; stroke-color: initial !important; stroke-dasharray: initial !important; stroke-dashoffset: initial !important; stroke-linecap: initial !important; stroke-linejoin: initial !important; stroke-miterlimit: initial !important; stroke-opacity: initial !important; stroke-width: initial !important; tab-size: initial !important; table-layout: initial !important; text-align: initial !important; text-align-last: initial !important; text-anchor: initial !important; text-autospace: initial !important; text-box: initial !important; text-combine-upright: initial !important; text-decoration-color: initial !important; text-decoration: initial !important; text-decoration-skip-ink: initial !important; text-decoration-style: initial !important; text-decoration-thickness: initial !important; text-emphasis-color: initial !important; text-emphasis-position: initial !important; text-emphasis-style: initial !important; text-indent: initial !important; text-orientation: initial !important; text-overflow: initial !important; text-rendering: initial !important; text-shadow: initial !important; text-transform: initial !important; text-underline-offset: initial !important; text-underline-position: initial !important; text-wrap: initial !important; touch-action: initial !important; transform: initial !important; transform-box: initial !important; transform-origin: initial !important; transform-style: initial !important; transition: initial !important; translate: initial !important; unicode-bidi: initial !important; vector-effect: initial !important; vertical-align: initial !important; view-transition-class: initial !important; view-transition-name: initial !important; visibility: initial !important; white-space: initial !important; widows: initial !important; width: initial !important; will-change: initial !important; word-break: initial !important; word-spacing: initial !important; writing-mode: initial !important; x: initial !important; y: initial !important; z-index: initial !important; zoom: initial !important; -apple-pay-button-style: initial !important; -apple-pay-button-type: initial !important; border-spacing: initial !important; -webkit-box-align: initial !important; -webkit-box-decoration-break: initial !important; -webkit-box-direction: initial !important; -webkit-box-flex: initial !important; -webkit-box-flex-group: initial !important; -webkit-box-lines: initial !important; -webkit-box-ordinal-group: initial !important; -webkit-box-orient: initial !important; -webkit-box-pack: initial !important; -webkit-box-reflect: initial !important; -webkit-column-axis: initial !important; -webkit-column-progression: initial !important; -webkit-cursor-visibility: initial !important; -webkit-font-smoothing: initial !important; -webkit-hyphenate-limit-after: initial !important; -webkit-hyphenate-limit-before: initial !important; -webkit-hyphenate-limit-lines: initial !important; -webkit-initial-letter: initial !important; -webkit-line-align: initial !important; -webkit-line-box-contain: initial !important; -webkit-line-clamp: initial !important; -webkit-line-grid: initial !important; -webkit-line-snap: initial !important; -webkit-locale: initial !important; -webkit-nbsp-mode: initial !important; -webkit-overflow-scrolling: initial !important; -webkit-rtl-ordering: initial !important; -webkit-tap-highlight-color: initial !important; -webkit-text-fill-color: initial !important; -webkit-text-security: initial !important; -webkit-text-size-adjust: initial !important; -webkit-text-stroke-color: initial !important; -webkit-text-stroke-width: initial !important; -webkit-text-zoom: initial !important; -webkit-touch-callout: initial !important; -webkit-user-drag: initial !important; -webkit-user-modify: initial !important; -webkit-user-select: initial !important;"><template shadowrootmode=open><div><style>.infobar,.infobar .infobar-icon,.infobar .infobar-link-icon {min-inline-size:28px;min-block-size:28px;box-sizing:border-box;}.infobar,.infobar .infobar-close-icon,.infobar .infobar-link-icon {opacity:0.7;transition:opacity 250ms;}.infobar:hover,.infobar .infobar-close-icon:hover,.infobar .infobar-link-icon:hover {opacity:1;}.infobar,.infobar-content {display:flex;}.infobar {position:fixed;max-height:calc(100% - 32px);top:16px;right:16px;margin-inline-start:16px;margin-block-end:16px;color:#2d2d2d;background-color:#737373;border:2px solid;border-color:#eee;border-radius:16px;z-index:2147483647;animation-name:flash;animation-duration:.5s;animation-timing-function:cubic-bezier(0.39,0.58,0.57,1);animation-delay:1s;animation-iteration-count:2;}.infobar:valid,.infobar:not(:focus-within):not(.infobar-focus) .infobar-content {display:none;}.infobar:focus-within,.infobar.infobar-focus {background-color:#f9f9f9;border-color:#878787;border-radius:8px;opacity:1;transition-property:opacity,background-color,border-color,border-radius,color;}.infobar-content {border:2px solid;border-color:#f9f9f9;border-radius:6px;background-color:#f9f9f9;overflow:auto;}.infobar-content span {font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:18px;word-break:break-word;white-space:pre-wrap;margin-inline:4px;margin-block:4px;}.infobar .infobar-icon,.infobar .infobar-close-icon,.infobar .infobar-link-icon {cursor:pointer;background-position:center;background-repeat:no-repeat;}.infobar .infobar-close-icon,.infobar .infobar-link-icon {align-self:flex-start;}.infobar .infobar-icon {position:absolute;min-inline-size:24px;min-block-size:24px;}@keyframes flash {0%,100% {	background-color:#737373;}50% {	background-color:#dd6a00;}}.infobar:focus-within .infobar-icon,.infobar.infobar-focus .infobar-icon {z-index:-1;background-image:none;margin:4px;}.infobar .infobar-close-icon {min-inline-size:22px;min-block-size:22px;}.infobar .infobar-icon {background-color:transparent;background-size:70%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABABAMAAABYR2ztAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHADIRLMaOHwAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAPUExURQAAAIqKioyNjY2OjvDw8L2y1DEAAAABdFJOUwBA5thmAAAAAWJLR0QB/wIt3gAAAGNJREFUSMdjYCAJsLi4OBCQx6/CBQwIGIDPCBcXAkYQUsACU+AwlBVQHg6Eg5pgZBGOboIJZugDFwRwoJECJCUOhJI1wZwzqmBUwagCuipgIqTABG9h7YIKaKGAURAFEF/6AQAO4HqSoDP8bgAAAABJRU5ErkJggg==);}.infobar .infobar-link-icon {right:4px;background-size:60%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8H+DhhoQAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJJJREFUOI3t070NRCEMA2CnYAOyDyPwpHj/Va7hJ3FzV7zy3ET5JIwoAF6Jk4wzAJAkzxAYG9YRTgB+24wBgKmfrGAKTcEfAY4KRlRoIeBTgKOCERVaCPgU4Khge2GqKOBTgKOCERVaAEC/4PNcnyoSWHpjqkhwKxbcig0Q6AorXYF/+A6eIYD1lVbwG/jdA6/kA2THRAURVubcAAAAAElFTkSuQmCC);}.infobar .infobar-close-icon {appearance:none;background-size:80%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8VC4EQ6QAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJtJREFUOI3NkrsBgCAMRLFwBPdxBArcfxXFkO8rbKWAAJfHJ9faf9vuYX/749T5NmShm3bEwbe2SxeuM4+2oxDL1cDoKtVUjRy+tH78Cv2CS+wIiQNC1AEhk4AQeUTMWUJMfUJMSEJMSEY8kIx4IONroaYAimNxsXp1PA7PxwfVL8QnowwoVC0lig07wDDVUjAdbAnjwtow/z/bDW7eI4M2KruJAAAAAElFTkSuQmCC);}.infobar { top:16px; bottom:auto; }.infobar { right:16px; left:auto; }</style><form class="infobar"><span tabindex="-1" class="infobar-icon"></span><span tabindex="-1" class="infobar-content"><input type="checkbox" required="" class="infobar-close-icon" title="Close"><span>Tue Jun 17 2025 15:28:38 GMT-0300 (Brasilia Standard Time)</span><a class="infobar-link-icon" target="_blank" rel="noopener noreferrer" title="Open source URL: https://christianmahnke.de/en/post/configure-pagefind/" href="https://christianmahnke.de/en/post/configure-pagefind/"></a></span></form><script>function Wo(n,{saveUrl:e,infobarContent:t,saveDate:a}){if(e){const o=n.querySelector("single-file-infobar").shadowRoot;o.querySelector(".infobar-content span").textContent=t||a;const i=o.querySelector(".infobar-content .infobar-link-icon");i.href=e,i.title="Open source URL: "+e}};function Ho(n,e=No){const t=n.evaluate("//comment()",n,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);let a=t&&t.singleNodeValue;if(a&&a.nodeType==Node.COMMENT_NODE&&a.textContent.includes(e)){const n=a.textContent.split("\n"),[,,e,...t]=n,o=e.match(/^ url: (.*) ?$/),i=o&&o[1];if(i){let n,e;if(t.length&&(e=t[0].split("saved date: ")[1],e&&t.shift(),t.length>1)){let e=t[0].split("info: ")[1].trim();for(let n=1;n<t.length-1;n++)e+="\n"+t[n].trim();n=e.trim()}return{saveUrl:i,infobarContent:n,saveDate:e}}}};(function Go(n,e){const t=Ho(n,e);t&&t.saveUrl&&Wo(n,t)})(document, "SingleFile");</script></div></template></single-file-infobar><script data-template-shadow-root>(()=>{document.currentScript.remove();processNode(document);function processNode(node){node.querySelectorAll("template[shadowrootmode]").forEach(element=>{let shadowRoot = element.parentElement.shadowRoot;if (!shadowRoot) {try {shadowRoot=element.parentElement.attachShadow({mode:element.getAttribute("shadowrootmode"),delegatesFocus:element.getAttribute("shadowrootdelegatesfocus")!=null,clonable:element.getAttribute("shadowrootclonable")!=null,serializable:element.getAttribute("shadowrootserializable")!=null});shadowRoot.innerHTML=element.innerHTML;element.remove()} catch (error) {} if (shadowRoot) {processNode(shadowRoot)}}})}})()</script>
