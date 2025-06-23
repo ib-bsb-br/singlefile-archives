@@ -1,0 +1,512 @@
+<!DOCTYPE html> <html lang=en><!--
+ Page saved with SingleFile 
+ url: https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts 
+ saved date: Mon Jun 23 2025 08:08:02 GMT-0300 (Brasilia Standard Time)
+--><meta charset=utf-8>
+<title>Reverse engineering iOS Shortcuts deeplinks - Vox Silva</title>
+<meta name=author content="Vox Silva">
+<meta property=og:title content="Reverse engineering iOS Shortcuts deeplinks - Vox Silva">
+<script type=application/ld+json>{"@context":"https://schema.org","@type":"WebSite","name":"Vox Silva","url":"https://blog.alexbeals.com/","alternateName":["VoxSilva","Vox Silva Blog","Silva Vox","SilvaVox","Silva Vox Blog","blog.alexbeals.com"]}</script>
+<meta name=viewport content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
+<link rel=canonical href=https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts>
+<meta property=og:type content=website>
+<meta property=og:url content=https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts>
+<meta property=og:site_name content="Vox Silva">
+<meta property=og:image content=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/22.png>
+<meta property=og:description content="Reverse engineering deeplinks from the iOS Shortcuts app.">
+<meta name=description content="Reverse engineering deeplinks from the iOS Shortcuts app.">
+<meta name=msapplication-TileColor content=#000000>
+<meta name=msapplication-TileImage content=/themes/folium/img/favicon/mstile-144x144.png>
+<meta name=msapplication-config content=/themes/folium/img/favicon/browserconfig.xml>
+<meta name=theme-color content=#1f260d>
+<meta name=referrer content=no-referrer><style>img[src="data:,"],source[src="data:,"]{display:none!important}</style></head>
+<body><script type=application/json data-single-file-options>{"saveUrl":"https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts","saveDate":1750676882814,"visitDate":1750676724995,"filenameTemplate":"%if-empty<{page-title}|No title> ({date-locale} {time-locale}).{filename-extension}","filenameReplacedCharacters":["~","+","?","%","*",":","|","\"","<",">","\\\\","\u0000-\u001f",""],"filenameReplacementCharacter":"_","filenameReplacementCharacters":["～","＋","？","％","＊","：","｜","＂","＜","＞","＼"],"filenameMaxLengthUnit":"bytes","filenameMaxLength":"192","replaceEmojisInFilename":true,"compressContent":false,"selfExtractingArchive":false,"extractDataFromPage":false,"referrer":"","title":"Reverse engineering iOS Shortcuts deeplinks - Vox Silva","info":{"description":"Reverse engineering deeplinks from the iOS Shortcuts app.","lang":"en","author":"Vox Silva","creator":"","publisher":"","heading":"Reverse engineering iOS Shortcuts deeplinks"}}</script>
+ <header id=top class=article-header>
+ <nav class="navbar navbar-default padding-container">
+ <div class=navbar-header>
+ <a href=https://blog.alexbeals.com/ class=navbar-brand>
+ <img src=data:, data-high-res=/themes/folium/tree.png alt="Lone Redwood" data-sf-original-src=https://blog.alexbeals.com/themes/folium/tree.png>
+ <span>Vox Silva</span>
+ </a>
+ </div>
+ <button type=button class="navbar-toggle collapsed" data-toggle=collapse data-target=#navbar-collapse-menu>
+ <span class=sr-only>Toggle navigation</span>
+ <span class=icon-bar></span>
+ <span class=icon-bar></span>
+ <span class=icon-bar></span>
+ </button>
+ <div class="collapse navbar-collapse sf-hidden" id=navbar-collapse-menu>
+ 
+ </div>
+ </nav>
+ </header>
+ <main class=container>
+ <article id=article-141>
+ <header>
+ <h1>Reverse engineering iOS Shortcuts deeplinks</h1>
+ <div class=meta>
+ <time datetime=2025-05-23T14:18:27-04:00>May 23, 2025</time>
+ </div>
+ </header>
+ <button class="trigger mobile-show" aria-label="Table of Contents"><span class="header2 sf-hidden" attr=strings></span><span class="header2 sf-hidden" attr=lldb></span><span class="header3 sf-hidden" attr=nsurl></span><span class="header3 active sf-hidden" attr=breakpoints></span><span class="header2 sf-hidden" attr=hopper></span><span class="header3 sf-hidden" attr=aslr></span><span class="header2 sf-hidden" attr=icmanager-and-workflowkit></span><span class="header2 sf-hidden" attr=are-any-of-these-useful></span><span class="header3 sf-hidden" attr=checking-block-info></span><span class="header3 sf-hidden" attr=setting-initialization-breakpo></span><span class="header3 sf-hidden" attr=following-blr-and-b-commands></span><span class="header2 sf-hidden" attr=conclusion></span></button><div class=table-of-contents></div> 
+ <p>I am a big fan of my phone being in grayscale, which <a href=https://link.springer.com/article/10.1007/s12144-021-02020-y class=inline target=_blank>reduces screentime</a> and cuts into into how attention-grabbing the <span class=hover-badge>bright red app badges</span> are. The problem is that I don't want <em>all</em> apps to be in grayscale: some because they're effectively broken (Photos, Camera) and others because I'm okay spending time on them (Books, Chess, Crosswords). I used to selectively do this with a <a href=https://blog.alexbeals.com/posts/grayscale-lock-combating-phone-addiction class=inline target=_blank>Cydia tweak I wrote</a> but nowadays<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:jailbreak-rip>1</sup>
+<span class="sidenote sf-hidden" data-footnote-index=1></span>
+</span> I do it with Shortcuts. A friend asked me how to set it up on their phone, but while the actual shortcut bit is trivial, creating the automation to run it requires tapping a row for every app on your phone. So before I encouraged them to do just that (<a href=https://blog.alexbeals.com/posts/make-your-phone-grayscale class=inline target=_blank>you should do just that</a>) I wanted to see if Shortcuts had a better way to import or programmatically create automations—through deeplinking.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:spoiler>2</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=2></span>
+</span></p>
+<p>Deeplinking is a way that apps can handle custom URLs, with arbitrary parameters passed through the URL’s query. I've done some work around this in the past<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:years>3</sup>
+<span class="sidenote sf-hidden" data-footnote-index=3></span>
+</span> on a jailbroken device to extract the deeplink URL schemes for <a href=https://blog.alexbeals.com/posts/facebook-deep-linking-options class=inline target=_blank>Facebook</a> and <a href=https://blog.alexbeals.com/posts/venmo-deeplinking class=inline target=_blank>Venmo</a>. My primary device is no longer jailbroken, but luckily we can do similar things for native apps using the Simulator. This also provides a great opportunity to dig into some more reverse engineering tools.</p>
+<h2 id=strings><code>strings</code></h2>
+<p>We'll start with a similar approach to the previous blog posts by leveraging <code>strings</code>. <code>strings</code> is a command-line tool that takes in compiled application code and extracts any strings that are at least 4 characters long. To run it, we need the path to that application code for Shortcuts. We can see the binary paths for running processes, so if we boot up the Simulator and open the Shortcuts app<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:version>4</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=4></span>
+</span> and run <code>ps -axo pid,command | grep Shortcuts</code> to filter to the relevant processes and their paths.</p>
+<div class=code-toolbar><pre class=language-text data-line=2 tabindex=0><code class=language-text>abeals@Alexs-MacBook-Pro ~ % ps -axo pid,command | grep Shortcuts 
+95542 /Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.4.simruntime/Contents/Resources/RuntimeRoot/Applications/Shortcuts.app/Shortcuts
+95483 /Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.4.simruntime/Contents/Resources/RuntimeRoot/System/Library/CoreServices/ShortcutsActions.app/Extensions/ShortcutsTopHitsExtension.appex/ShortcutsTopHitsExtension
+95391 /Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.4.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/VoiceShortcuts.framework/Support/siriactionsd
+94911 /System/Library/PrivateFrameworks/VoiceShortcuts.framework/Versions/A/Support/siriactionsd
+96286 grep Shortcuts
+<div aria-hidden=true data-range=2 class=line-highlight data-start=2> 
+</div></code></pre><div class=toolbar><div class=toolbar-item><span>Plain text</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>The first one is what we want, for the raw <code>Shortcuts.app/Shortcuts</code> file. We can then run <code>strings</code> directly on this, which will extract the printable strings from the compiled binary. By filtering for <code>://</code> we can see any deeplink shortcuts that the app explicitly references.</p>
+<div class=code-toolbar><pre class=language-bash data-line=8-9 tabindex=0><code class=language-bash>strings <span class="token punctuation">\</span>
+  <span class="token string">"/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.4.simruntime/Contents/Resources/RuntimeRoot/Applications/Shortcuts.app/Shortcuts"</span> <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">grep</span> :// <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">sort</span> <span class="token punctuation">\</span>
+  <span class="token operator">|</span> <span class="token function">uniq</span>
+
+<span class="token operator">&lt;</span><span class="token operator">!</span>DOCTYPE plist PUBLIC <span class="token string">"-//Apple//DTD PLIST 1.0//EN"</span> <span class="token string">"http://www.apple.com/DTDs/PropertyList-1.0.dtd"</span><span class="token operator">&gt;</span>
+shortcuts://create-workflow?source<span class="token operator">=</span>3d_touch
+shortcuts://gallery
+<div aria-hidden=true data-range=8-9 class=line-highlight data-start=8 data-end=9> 
+ 
+</div></code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>Xcode exposes <code>simctl</code> as a CLI for the Simulator tool, and we can test triggering these deeplinks with <code>xcrun simctl openurl booted "shortcuts://create-workflow?source=3d_touch"</code>.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:nomatches>5</sup>
+<span class="sidenote sf-hidden" data-footnote-index=5></span>
+</span> The first one opens the "Create Shortcuts" UI, and the second one navigates to the Gallery tab in the app. The "3d_touch" source makes me think these are the Quick Link affordances, and by longpressing the app icon in Simulator we can confirm this is true.</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/1.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/1.png></a></p>
+<p>Neither of these are that useful for us though—we need something related to automations. It's time to break out the big guns.</p>
+<h2 id=lldb>lldb</h2>
+<p>We know that the base URL scheme is <code>shortcuts://</code>,<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:deeplink-schemes>6</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=6></span>
+</span> but we don't know what's available to use with it. Ideally we could find the code that handles the deeplinks, and see what it supports. Here's where we get into the main reverse engineering. By connecting a debugger to the app we can tell it to stop running when it does some deeplink parsing code, allowing us to see what code is running and step through execution. We can connect <code>lldb</code>, Apple's debugger<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:apple-debugger>7</sup>
+<span class="sidenote sf-hidden" data-footnote-index=7></span>
+</span>, to our running Shortcuts app with <code>lldb -p 95542</code>.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:mismatch>8</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=8></span>
+</span></p>
+<video id=lldb-connect playsinline muted soda-loaded=true poster=data:,>
+ <source data-sf-original-src=/images/reverse-engineering-ios-deeplinking-for-shortcuts/3.mov>
+ Your browser does not support the video tag.
+</video><a href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/3.mov target=_blank><img src=data:,></a>
+<h3 id=nsurl>NSURL</h3>
+<p>Now that that's connected we'd like to add a breakpoint for URL parsing. We need to know what functions to set a breakpoint on though, so it's worth a quick divagation into how URLs are constructed, and specifically <code>NSURL</code>, Apple's implementation class. Here are the main sections for a typical URL, like something you would see for this blog.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:colors>9</sup>
+<span class="sidenote sf-hidden" data-footnote-index=9></span>
+</span></p>
+<p><span><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/7.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/6.png></a><span><i>Annotated structure of a URL</i></span></span></p>
+<p>Each of these are exposed as properties on <code>NSURL</code> with the same name, so <code>[url&nbsp;host]</code> would give <code>blog.alexbeals.com</code>. In this case, we're looking at deeplink URLs, so the key bit will be <code>scheme</code> matching "shortcuts".</p>
+<h3 id=breakpoints>Breakpoints</h3>
+<p>I'm reasonably confident that at some point in the URL handling flow we will need to check the <code>scheme</code>. We can add a breakpoint anytime this function is hit on an <code>NSURL</code> by going to the <code>lldb</code> window and running <code>breakpoint set -n "-[NSURL scheme]"</code>.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:bshortcut>10</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=10></span>
+</span> The debugger will pause execution by default when starting, so we can type <code>continue</code><span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:cshortcut>11</sup>
+<span class="sidenote sf-hidden" data-footnote-index=11></span>
+</span> to have the app start running again. In another Terminal window I can trigger the deeplink processing code with <code>xcrun simctl openurl booted shortcuts://</code>, and voila—we hit the breakpoint!</p>
+<p>We can use <code>thread backtrace</code><span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:btshortcut>12</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=12></span>
+</span> to see the full stack up to this point. We can see that it goes through Shortcuts in frame #26, but most of the code seems like core-iOS about whether the app should handle the URL, not specifically what to <em>do</em> with it. Let's continue on (<code>c</code>) and see if the later traces are more helpful.</p>
+<div class=code-toolbar><pre class=language-text data-line=28 tabindex=0><code class=language-text>* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 5.1
+  * frame #0: 0x0000000180e13dd8 Foundation`-[NSURL(NSURL) scheme]
+    frame #1: 0x00000001856558a8 UIKitCore`-[UIApplication(UIApplicationTesting) _shouldHandleTestURL:] + 24
+    frame #2: 0x000000018573e500 UIKitCore`_UISceneOpenURLContextsFromActionsSessionAndTransitionContext + 1040
+    frame #3: 0x000000018573e054 UIKitCore`-[_UISceneOpenURLBSActionsHandler _respondToActions:forFBSScene:inUIScene:fromTransitionContext:] + 124
+    frame #4: 0x00000001848f1684 UIKitCore`-[UIScene scene:didReceiveActions:fromTransitionContext:] + 228
+    frame #5: 0x00000001848f0e84 UIKitCore`__64-[UIScene scene:didUpdateWithDiff:transitionContext:completion:]_block_invoke.199 + 324
+    frame #6: 0x00000001848efd50 UIKitCore`-[UIScene _emitSceneSettingsUpdateResponseForCompletion:afterSceneUpdateWork:] + 208
+    frame #7: 0x00000001848f0c24 UIKitCore`-[UIScene scene:didUpdateWithDiff:transitionContext:completion:] + 220
+    frame #8: 0x0000000184ed3338 UIKitCore`-[UIApplicationSceneClientAgent scene:handleEvent:withCompletion:] + 308
+    frame #9: 0x0000000186f306ac FrontBoardServices`-[FBSScene updater:didUpdateSettings:withDiff:transitionContext:completion:] + 600
+    frame #10: 0x0000000186f5ad48 FrontBoardServices`__94-[FBSWorkspaceScenesClient _queue_updateScene:withSettings:diff:transitionContext:completion:]_block_invoke_2 + 124
+    frame #11: 0x0000000186f3be54 FrontBoardServices`-[FBSWorkspace _calloutQueue_executeCalloutFromSource:withBlock:] + 160
+    frame #12: 0x0000000186f5ac94 FrontBoardServices`__94-[FBSWorkspaceScenesClient _queue_updateScene:withSettings:diff:transitionContext:completion:]_block_invoke + 312
+    frame #13: 0x0000000180171978 libdispatch.dylib`_dispatch_client_callout + 16
+    frame #14: 0x00000001801758d8 libdispatch.dylib`_dispatch_block_invoke_direct + 380
+    frame #15: 0x0000000186f7cb20 FrontBoardServices`__FBSSERIALQUEUE_IS_CALLING_OUT_TO_A_BLOCK__ + 44
+    frame #16: 0x0000000186f7c9fc FrontBoardServices`-[FBSMainRunLoopSerialQueue _targetQueue_performNextIfPossible] + 196
+    frame #17: 0x0000000186f7cb54 FrontBoardServices`-[FBSMainRunLoopSerialQueue _performNextFromRunLoopSource] + 24
+    frame #18: 0x000000018040ee88 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__ + 24
+    frame #19: 0x000000018040edd0 CoreFoundation`__CFRunLoopDoSource0 + 172
+    frame #20: 0x000000018040e540 CoreFoundation`__CFRunLoopDoSources0 + 232
+    frame #21: 0x0000000180408c28 CoreFoundation`__CFRunLoopRun + 768
+    frame #22: 0x0000000180408514 CoreFoundation`CFRunLoopRunSpecific + 572
+    frame #23: 0x000000018ef06ae4 GraphicsServices`GSEventRunModal + 160
+    frame #24: 0x00000001853e8040 UIKitCore`-[UIApplication _run] + 868
+    frame #25: 0x00000001853ebcc8 UIKitCore`UIApplicationMain + 124
+    frame #26: 0x0000000102b64c24 Shortcuts`___lldb_unnamed_symbol4135 + 76
+    frame #27: 0x0000000102d09544 dyld_sim`start_sim + 20
+    frame #28: 0x0000000102db6274 dyld`start + 2840
+<div aria-hidden=true data-range=28 class=line-highlight data-start=28> 
+</div></code></pre><div class=toolbar><div class=toolbar-item><span>Plain text</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>The third time it trips is more interesting. We can see that it's still downstream of the <code>_UISceneSendOpenURLActionCallbackForScene</code> function, but now we're hitting <code>Shortcuts</code> code again, and <code>WorkflowKit</code> which is doing some URL handling work (<code>-[ICManager handleIncomingRequest]</code> and <code>-[_ICURLRequest parseActions]</code> seem like great places to look).</p>
+<div class=code-toolbar><pre class=language-text data-line=7 id=frame4 tabindex=0><code class=language-text>* thread #1, queue = 'com.apple.main-thread', stop reason = breakpoint 5.1
+  * frame #0: 0x0000000180e13dd8 Foundation`-[NSURL(NSURL) scheme]
+    frame #1: 0x00000001a583e334 WorkflowKit`-[_ICURLRequest parseActions] + 116
+    frame #2: 0x00000001a583e280 WorkflowKit`-[_ICURLRequest action] + 32
+    frame #3: 0x00000001a58ffeb0 WorkflowKit`-[ICManager handleIncomingRequest:] + 200
+    frame #4: 0x00000001a58ffc6c WorkflowKit`-[ICManager handleOpenURL:fromSourceApplication:errorHandler:postNotification:] + 536
+    frame #5: 0x0000000102b627c8 Shortcuts`___lldb_unnamed_symbol4075 + 392
+    frame #6: 0x0000000102b625d4 Shortcuts`___lldb_unnamed_symbol4074 + 184
+    frame #7: 0x000000018573e7a0 UIKitCore`_UISceneSendOpenURLActionCallbackForScene + 108
+    frame #8: 0x000000018573e080 UIKitCore`-[_UISceneOpenURLBSActionsHandler _respondToActions:forFBSScene:inUIScene:fromTransitionContext:] + 168
+...
+<div aria-hidden=true data-range=7 class=line-highlight data-start=7> 
+</div></code></pre><div class=toolbar><div class=toolbar-item><span>Plain text</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>We're also seeing more of the <code>___lldb_unnamed_symbol</code> callsites within Shortcuts. Let's try and figure out what frame #5 is doing, which is a great opportunity to introduce our other big gun.</p>
+<h2 id=hopper>Hopper</h2>
+<p><a href=https://www.hopperapp.com/ class=inline target=_blank>Hopper</a> is a disassembler, like IDA and Ghidra, allowing us to turn compiled code from binaries into something closer to source code. The benefit of using Hopper over an alternative is mostly because it handles iOS's idiosyncrasies well.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:free>13</sup>
+<span class="sidenote sf-hidden" data-footnote-index=13></span>
+</span> We can drag and drop the <code>Shortcuts.app/Shortcuts</code> file that we ran <code>strings</code> on higher up, and after accepting the defaults<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:defaults>14</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=14></span>
+</span> a window opens up into a somewhat intimidating screen of raw assembly. It's okay if you're not familiar with ASM, we'll be using very little of it today.</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/8.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/8.png></a></p>
+<h3 id=aslr>ASLR</h3>
+<p>The first thing we're going to need to do is handle the ASLR offset. ASLR or <strong>A</strong>ddress <strong>S</strong>pace <strong>L</strong>ayout <strong>R</strong>andomization randomly arranges the address space when loading programs so that attackers can't reliably jump to a fixed portion of memory and know what's there.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:gba-ace>15</sup>
+<span class="sidenote sf-hidden" data-footnote-index=15></span>
+</span> In practice what this means for us is that when we want to see what's at address <code>0x102b627c8</code> from <code>frame #5: 0x0000000102b627c8 Shortcuts`___lldb_unnamed_symbol4075 + 392</code> it won't line up with the address jumps in Hopper.</p>
+<p>Luckily we can fix this. By running <code>image list -o -f | grep Shortcuts</code> in <code>lldb</code> we can get the offset that it's currently placed in memory. In this case that's <code>0x2af4000</code>.</p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash>image list <span class="token parameter variable">-o</span> <span class="token parameter variable">-f</span> <span class="token operator">|</span> <span class="token function">grep</span> Shortcuts
+<span class="token punctuation">[</span>  <span class="token number">0</span><span class="token punctuation">]</span> 0x0000000002af4000 /Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/Applications/Shortcuts.app/Shortcuts</code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>In Hopper go to <f>Modify</f> &gt; <f>Change File Base Address...</f>, where it will say that the offset is <code>0x100000000</code>. Adding <code>0x2af4000</code> to that gives us <code>0x102af4000</code>.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:hexmath>16</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=16></span>
+</span> If we change the offset to that, then we should be good to jump directly there with <f>Navigate</f> &gt; <f>Go To Address or Symbol...</f> (or just <kbd>G</kbd>) and type <code>0x102b627c8</code>. If we change the mode from "ASM mode" to "Pseudo-code mode" in the top bar then it's <em>almost</em> legible. We're within the class <code>WFMainSceneDelegate</code> in the <code>-(int)handleOpenURL:(int)arg2 options:(int)arg3</code> function. The first <code>if</code> case handles file URLs, and the <code>else</code> block uses <code>[ICManager sharedManager]</code> to handle deeplinks like the ones we're using.</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/9.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/9.png></a></p>
+<p>So let's start digging into ICManager!</p>
+<h2 id=icmanager-and-workflowkit>ICManager and WorkflowKit</h2>
+<p>We'll start off in a similar way. <code>image lookup -n "+[ICManager sharedManager]"</code> will let us know the path of the framework that we're working with. We can drag that into Hopper.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:ipsw>17</sup>
+<span class="sidenote sf-hidden" data-footnote-index=17></span>
+</span></p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash><span class="token number">1</span> match found <span class="token keyword">in</span> /Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/WorkflowKit.framework/WorkflowKit:
+        Address: WorkflowKit<span class="token punctuation">[</span>0x0000000000246bd4<span class="token punctuation">]</span> <span class="token punctuation">(</span>WorkflowKit.__TEXT.__text + <span class="token number">2373260</span><span class="token punctuation">)</span>
+        Summary: WorkflowKit`+<span class="token punctuation">[</span>ICManager sharedManager<span class="token punctuation">]</span></code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>We also need to handle the ASLR offset again. <code>image list -o | grep WorkflowKit</code> gives <code>0x1a56bb000</code>, which we can use directly in the Change File Base Address affordance again.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:libraries>18</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=18></span>
+</span> From there, we can jump directly to <code>0x1a58ffc6c</code> where that <code>ICManager handleOpenURL:</code> call was happening.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:frame4reference>19</sup>
+<span class="sidenote sf-hidden" data-footnote-index=19></span>
+</span></p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/10.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/10.png></a></p>
+<p>Inside that function you can see that we're first calling <code>[*0x1a5b38188 requestWithURL:r22 fromSourceApplication:r19];</code> to build an object (jumping to <code>0x1a5b38188</code> reveals that's the <code>_ICURLRequest</code> class), adding some callback handlers, and then passing it to <code>handleIncomingRequest</code>. If it's not <code>nil</code> then the app does some additional processing. <code>handleIncomingRequest</code> is probably what we want.</p>
+<p>One of the first things <code>handleIncomingRequest</code> does is call <code>[request action]</code>, which extracts it from <code>[request parseAction]</code>. Let's use this as an example of how to reverse engineer back to more legible code. On the left is the raw output from Hopper's generated pseudocode for <code>parseAction</code>. On the right is what I manually reverse-engineered that code into. You can see that firstly, it's much shorter (71 lines down to 29) and secondly, it's much easier to follow what's going on.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:voiceover>20</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=20></span>
+</span></p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/12.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/12.png></a></p>
+<p>The types of requests it will parse are <code>https://whatever.com/action/subaction</code>, <code>shortcuts://action/subaction</code> and <code>shortcuts://x-callback-url/action/subaction</code>.</p>
+<p>We can take a similar approach to reverse-engineering <code>handleIncomingRequest</code>, which boils down to this code.</p>
+<div class=code-toolbar><pre class=language-objc tabindex=0><code class=language-objc>NSString <span class="token operator">*</span>action <span class="token operator">=</span> <span class="token punctuation">[</span>request action<span class="token punctuation">]</span><span class="token punctuation">;</span>
+NSString <span class="token operator">*</span>action <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">[</span>request URL<span class="token punctuation">]</span> scheme<span class="token punctuation">]</span><span class="token punctuation">;</span>
+ICURLRequestRegistry <span class="token operator">*</span>registry <span class="token operator">=</span> <span class="token punctuation">[</span>ICURLRequestRegistry sharedRegistry<span class="token punctuation">]</span><span class="token punctuation">;</span>
+handler <span class="token operator">=</span> <span class="token punctuation">[</span>registry handlerForIncomingRequestWithAction<span class="token punctuation">:</span>action scheme<span class="token punctuation">:</span>scheme<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>handler<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token function">handler</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre><div class=toolbar><div class=toolbar-item><span>Objective-C</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>That points us to <code>handlerForIncomingRequestWithAction</code>:</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/17.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/17.png></a></p>
+<p>This starts by getting a dictionary with <code>[self requestHandlers]</code> and then indexes into it in a number of ways,<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:line-numbers>21</sup>
+<span class="sidenote sf-hidden" data-footnote-index=21></span>
+</span> going from the hyper-specific <code>requestHandlers[scheme][action]</code>, through <code>requestHandlers['*'][action]</code>, <code>requestHandlers[scheme]['*']</code> and finally ending at <code>requestHandlers['*']['*']</code>. We can take a look at <code>requestHandlers</code> in <code>lldb</code> with <code>po [[ICURLRequestRegistry sharedRegistry] requestHandlers]</code>, and tada, we have the full list!<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:evernote>22</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=22></span>
+</span></p>
+<div class=code-toolbar><pre class=language-text tabindex=0><code class=language-text>{
+    "*" =     {
+        app = "&lt;__NSMallocBlock__: 0x600000c40a80&gt;";
+        "app-shortcut-add-home-screen" = "&lt;__NSMallocBlock__: 0x600000c40930&gt;";
+        "app-shortcut-create-workflow" = "&lt;__NSMallocBlock__: 0x600000c40510&gt;";
+        automations = "&lt;__NSMallocBlock__: 0x600000c402a0&gt;";
+        "continue-user-activity" = "&lt;__NSMallocBlock__: 0x600000c078d0&gt;";
+        "create-automation" = "&lt;__NSMallocBlock__: 0x600000c40270&gt;";
+        "create-shortcut" = "&lt;__NSMallocBlock__: 0x600000c406f0&gt;";
+        "create-workflow" = "&lt;__NSMallocBlock__: 0x600000c406f0&gt;";
+        gallery = "&lt;__NSMallocBlock__: 0x600000c40180&gt;";
+        home = "&lt;__NSMallocBlock__: 0x600000c40210&gt;";
+        "ic-cancel" = "&lt;__NSGlobalBlock__: 0x1f12dc4c0&gt;";
+        "ic-error" = "&lt;__NSGlobalBlock__: 0x1f12dc4e0&gt;";
+        "ic-success" = "&lt;__NSGlobalBlock__: 0x1f12dc4a0&gt;";
+        "import-shortcut" = "&lt;__NSMallocBlock__: 0x600000c409f0&gt;";
+        "import-workflow" = "&lt;__NSMallocBlock__: 0x600000c409f0&gt;";
+        "open-shortcut" = "&lt;__NSMallocBlock__: 0x600000c40720&gt;";
+        "open-workflow" = "&lt;__NSMallocBlock__: 0x600000c40870&gt;";
+        "run-shortcut" = "&lt;__NSMallocBlock__: 0x600000c40810&gt;";
+        "run-workflow" = "&lt;__NSMallocBlock__: 0x600000c40900&gt;";
+        shortcuts = "&lt;__NSMallocBlock__: 0x600000c40240&gt;";
+        workflows = "&lt;__NSMallocBlock__: 0x600000c40240&gt;";
+    };
+    "en-team146" =     {
+        "*" = "&lt;__NSMallocBlock__: 0x600000c17300&gt;";
+    };
+    pocketapp36486 =     {
+        "*" = "&lt;__NSMallocBlock__: 0x600000dbe1c0&gt;";
+    };
+}</code></pre><div class=toolbar><div class=toolbar-item><span>Plain text</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>This gives us our final list of actions, and prompts the million-dollar question. <span><span class=drumroll>🥁</span> Drumroll, please...</span></p>
+<h2 id=are-any-of-these-useful>Are any of these useful?</h2>
+<p>We now know which actions are handled, but not what they do or what options they support. We have a couple ways to try and dive into them to see if any of them can help us with our goal of programmatically creating an automation.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:bet>23</sup>
+<span class="sidenote sf-hidden" data-footnote-index=23></span>
+</span></p>
+<h3 id=checking-block-info>Checking block info</h3>
+<p>We can print out the information around one of the blocks. I'll start out of order, with <code>0x1f12dc4c0</code> for <strong>ic-cancel</strong>.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:outoforder>24</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=24></span>
+</span></p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash>po 0x1f12dc4c0
+<span class="token operator">&lt;</span>__NSGlobalBlock__: 0x1f12dc4c<span class="token operator"><span class="token file-descriptor important">0</span>&gt;</span>
+ signature: <span class="token string">"v16@?0@"</span>_ICURLRequest<span class="token string">"8"</span>
+ invoke   <span class="token builtin class-name">:</span> 0x1a59019fc <span class="token punctuation">(</span>/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/WorkflowKit.framework/WorkflowKit`__17-<span class="token punctuation">[</span>ICManager init<span class="token punctuation">]</span>_block_invoke_2<span class="token punctuation">)</span></code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>The first part of the layout is the <code>signature</code>, which is the <a href=https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html class=inline target=_blank>type-encoded method string</a>, and translates to <code>-(void)handler:(_ICURLRequest *)request</code> (the first arg is just the pointer for the block itself).</p>
+<p><span><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/15.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/14.png></a><span><i>Block signature</i></span></span></p>
+<p>The second is the <code>invoke</code> address, which points to a block invoke in <code>[ICManager init]</code> in <code>WorkflowKit</code>. We can jump to address <code>0x1a59019fc</code> and directly look at the pseudocode:</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/18.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/18.png></a></p>
+<p>This simplifies down to the following. </p>
+<div class=code-toolbar><pre class=language-objc tabindex=0><code class=language-objc>uuid <span class="token operator">=</span> <span class="token punctuation">[</span>NSUUID initWithUUIDString<span class="token punctuation">:</span><span class="token punctuation">[</span>request subAction<span class="token punctuation">]</span><span class="token punctuation">]</span>
+successHandler <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">[</span>ICURLRequestRegistry sharedRegistry<span class="token punctuation">]</span> popRequestWithUUID<span class="token punctuation">:</span>uuid<span class="token punctuation">]</span> successHandler<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token function">successHandler</span><span class="token punctuation">(</span><span class="token punctuation">[</span>request properties<span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre><div class=toolbar><div class=toolbar-item><span>Objective-C</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>If we go back to the <code>handleOpenURL</code> call from higher up, we can see that you can set the success/cancel/failure handlers on the <code>_ICURLRequest</code> in the deeplink using <code>x-success</code>, <code>x-cancel</code>, and <code>x-error</code> respectively. Here, we can see that this handles the handler for the request identified by the UUID in the <code>subaction</code> field, or requests like <code>shortcuts://ic-cancel/uu1duu1d-c0d3-h3r3-f04e-ca5c311ngr3q</code>.</p>
+<p>This approach also works for <strong>ic-success</strong>, which is the same code but invokes <code>successHandler([request properties], 0)</code> and <strong>ic-error</strong> which has some more involved code creating an <code>NSError</code> from the domain (handling a request like <code>shortcuts://ic-error/uu1duu1d-c0d3-h3r3-f04e-ca5c311ngr3q?errorDomain=error&amp;errorCode=12345&amp;errorMessage=whoops</code>):</p>
+<div class=code-toolbar><pre class=language-objc tabindex=0><code class=language-objc>uuid <span class="token operator">=</span> <span class="token punctuation">[</span>NSUUID initWithUUIDString<span class="token punctuation">:</span><span class="token punctuation">[</span>request subAction<span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+poppedRequest <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">[</span>ICURLRequestRegistry<span class="token punctuation">]</span> popRequestWithUUID<span class="token punctuation">:</span>uuid<span class="token punctuation">]</span><span class="token punctuation">;</span>
+failureHandler <span class="token operator">=</span> <span class="token punctuation">[</span>poppedRequest failureHandler<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>failureHandler<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token function">failureHandler</span><span class="token punctuation">(</span><span class="token punctuation">[</span>NSError errorWithDomain<span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">[</span>request properties<span class="token punctuation">]</span> <span class="token string">@"errorDomain"</span><span class="token punctuation">]</span> <span class="token operator">?</span><span class="token operator">?</span> <span class="token string">@"InterchangeCallbackErrorDomain"</span> code<span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">[</span><span class="token punctuation">[</span>request properties<span class="token punctuation">]</span> <span class="token string">@"errorCode"</span><span class="token punctuation">]</span> integerValue<span class="token punctuation">]</span> userInfo<span class="token punctuation">:</span><span class="token punctuation">[</span>NSDictionary dictionaryWithObjectsAndKeys<span class="token punctuation">:</span><span class="token operator">@</span><span class="token punctuation">[</span>request properties<span class="token punctuation">]</span> <span class="token string">@"errorMessage"</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span>poppedRequest successHandler<span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token punctuation">[</span>poppedRequest successHandler<span class="token punctuation">]</span><span class="token punctuation">(</span>nil<span class="token punctuation">,</span> nil<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre><div class=toolbar><div class=toolbar-item><span>Objective-C</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>Checking the block info also works for some other actions.</p>
+<p><strong>open-shortcut</strong><br>
+This is handled by <code>0x1a59054b4</code> in <code>+[WFRunWorkflowURLHandler registerOpenWorkflowHandler:]</code> which can be hit by something like <code>shortcuts://open-shortcut?name=Shortcut%20Name</code>. It will open the shortcut with the matching name (or <code>id</code> if you use the raw identifier). Once it's been loaded it gets forwarded through WorkflowUI (<code>sub_60d48</code>) and Shortcuts (<code>sub_10000f094</code>) to Swift code in <code>WorkflowUI.OpenWorkflowOptions</code>, finally hitting <code>WFMainViewController runCoordinator</code> which does the actual UI presentation. Unfortunately there's no other option that I could see in here to do something with the opened shortcut.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:open-option>25</sup>
+<span class="sidenote sf-hidden" data-footnote-index=25></span>
+</span></p>
+<div class=code-toolbar><pre class=language-objc tabindex=0><code class=language-objc>workflow <span class="token operator">=</span> <span class="token punctuation">[</span>WFRunWorkflowURLHandler workflowWithName<span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">[</span>request parameters<span class="token punctuation">]</span> <span class="token string">@"name"</span><span class="token punctuation">]</span> identifier<span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">[</span>request parameters<span class="token punctuation">]</span> <span class="token string">@"id"</span><span class="token punctuation">]</span><span class="token punctuation">]</span>
+<span class="token punctuation">[</span><span class="token punctuation">[</span>WFDatabase defaultDatabase<span class="token punctuation">]</span> referenceForWorkflowID<span class="token punctuation">:</span>identifier<span class="token punctuation">]</span> 
+<span class="token punctuation">[</span><span class="token punctuation">[</span>WFDatabase defaultDatabase<span class="token punctuation">]</span> uniqueVisibleReferenceForWorkflowName<span class="token punctuation">:</span>name<span class="token punctuation">]</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>workflow<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token punctuation">[</span>request failureHandler<span class="token punctuation">]</span><span class="token punctuation">(</span>error<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token comment">// do some additional processing using "actionIndex" and "actionErrorMessage" from parameters</span>
+<span class="token punctuation">}</span></code></pre><div class=toolbar><div class=toolbar-item><span>Objective-C</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p><strong>open-workflow</strong><br>
+This points to the exact same function as <strong>open-shortcut</strong>, and is downstream of the <code>legacyAction</code> invocation for setting up handlers (likely to support old Workflow code):</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/19.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/19.png></a></p>
+<p>This same thing applies for <strong>create-workflow</strong> mirroring <strong>create-shortcut</strong>, <strong>import-workflow</strong> mirroring <strong>import-shortcut</strong>, <strong>run-workflow</strong> mirroring <strong>run-shortcut</strong> and <strong> workflows</strong> mirroring <strong>shortcuts</strong>.</p>
+<p>We can use the block inspection trick<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:irrelevant>26</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=26></span>
+</span> for the universal handlers for <code>en-team146://</code> (<code>WFEvernoteAccessResource</code> in ActionKit) and <code>pocketapp36486://</code> (<code>WFPocketAccessResource</code> in ActionKit), <strong>continue-user-activity</strong> (does some file loading using <code>userInfoURL</code> and passes off to <code>_WFHandoffContinueWorkflowActivityType</code> in <code>WFMainSceneDelegate</code>) and <strong>run-shortcut</strong> (does the same workflow loading that <strong>open-shortcut</strong> does, but can pass in data like <code>shortcuts://run-shortcut/UUID?input=text&amp;text=Hello</code>, where <code>text</code> can be swapped in both locations for <code>clipboard</code> or <code>pasteboard</code>).</p>
+<p>But unfortunately, for the remaining ones (including the potentially helpful <strong>create-automation</strong> action) the <code>invoke</code> functions all point to the same address, this vague Swift <code>__swift_project_boxed_opaque_existential_0</code> wrapper.</p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash>po 0x600000c40a80
+<span class="token operator">&lt;</span>__NSMallocBlock__: 0x600000c40a8<span class="token operator"><span class="token file-descriptor important">0</span>&gt;</span>
+ signature: <span class="token string">"v16@?0@"</span>_ICURLRequest<span class="token string">"8"</span>
+ invoke   <span class="token builtin class-name">:</span> 0x1b5fc26e0 <span class="token punctuation">(</span>/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/WorkflowUI.framework/WorkflowUI<span class="token variable"><span class="token variable">`</span>__swift_project_boxed_opaque_existential_0<span class="token punctuation">)</span>
+ copy     <span class="token builtin class-name">:</span> 0x1b5fcc210 <span class="token punctuation">(</span>/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/WorkflowUI.framework/WorkflowUI<span class="token variable">`</span></span>block_copy_helper.113<span class="token punctuation">)</span>
+ dispose  <span class="token builtin class-name">:</span> 0x1b5fcc254 <span class="token punctuation">(</span>/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS <span class="token number">17.4</span>.simruntime/Contents/Resources/RuntimeRoot/System/Library/PrivateFrameworks/WorkflowUI.framework/WorkflowUI`block_destroy_helper.114<span class="token punctuation">)</span></code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>It's time to dive back into our <code>lldb</code> toolbox. First let's see where these are created by setting breakpoints when the handler is added with <code>-‍[ICManager&nbsp;registerHandler:​forIncomingRequestsWithAction:​scheme:]</code> and dig into the code there.</p>
+<h3 id=setting-initialization-breakpo>Setting initialization breakpoints with <code>--waitfor</code></h3>
+<p>Up to this point our breakpoint approach has been getting the PID and attaching <em>after</em> the app has started up. That will be too late for these handlers being registered, so we'll need to take another approach. We can close the app, open <code>lldb</code>, and attach using <code>--waitfor</code> and a process name. This automatically attaches when the app is started, and will immediately break (before any libraries are loaded, or methods invoked) so we can set our breakpoint.<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:bp-warning>27</sup>
+<span class="sidenote sf-hidden" data-footnote-index=27></span>
+</span> We can add a command to print out the action and scheme each time the breakpoint is hit, allowing us to use <code>bt</code> to find the code responsible.</p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash>lldb
+process attach <span class="token parameter variable">--name</span> Shortcuts <span class="token parameter variable">--waitfor</span>
+<span class="token comment"># Now that it's waiting, open the app. It will automatically stop, then add a breakpoint.</span>
+b <span class="token parameter variable">-n</span> <span class="token string">"-[ICManager registerHandler:forIncomingRequestsWithAction:scheme:]"</span>
+breakpoint <span class="token builtin class-name">command</span> <span class="token function">add</span>
+po <span class="token variable">$x3</span>
+po <span class="token variable">$x4</span>
+DONE
+c</code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>This flags that the stacktrace that instantiates <strong>home</strong>, <strong>automations</strong>, <strong>gallery</strong>, <strong>create-shortcut</strong>, <strong>create-automation</strong>, <strong>app</strong>, <strong>app-shortcut-create-workflow</strong>, and <strong>app-shortcut-add-home-screen</strong> is the following, going through <code>WorkflowUI</code>:</p>
+<div class=code-toolbar><pre class=language-text tabindex=0><code class=language-text>frame #0: 0x00000001a5900074 WorkflowKit`-[ICManager registerHandler:forIncomingRequestsWithAction:scheme:]
+    frame #1: 0x00000001b5fc1e60 WorkflowUI`___lldb_unnamed_symbol19880 + 284
+    frame #2: 0x000000010429b768 Shortcuts`___lldb_unnamed_symbol2248 + 516
+    frame #3: 0x000000010428e0e8 Shortcuts`___lldb_unnamed_symbol2054 + 128
+    frame #4: 0x00000001042f1aac Shortcuts`___lldb_unnamed_symbol4064 + 564</code></pre><div class=toolbar><div class=toolbar-item><span>Plain text</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>With the <code>image list</code> offset of <code>0x1b5f62000</code> we can jump to <code>0x1b5fc1e60</code> in Hopper for the <code>WorkflowUI</code> binary to reveal that it's the <code>WorkflowUI.RootView.setup</code> function. This is a little helpful, but we're in Swift code, and so reading the actual handlers is pretty rough. Instead, let's swap to our final approach: stepping through execution in the boxed opaque stub.</p>
+<h3 id=following-blr-and-b-commands>Following <code>blr</code> and <code>b</code> commands</h3>
+<p>All of the code goes through <code>__swift_project_boxed_opaque_existential_0</code> at <code>0x1b5fc26e0</code> before it goes elsewhere. Jumping to that address in Hopper for <code>WorkflowKit</code> shows that that we're jumping to is stored in register 21. So let's set a breakpoint here, and figure out where the real code that will be executed lives.</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/20.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/20.png></a></p>
+<p>In ASM mode this is invoked at <code>0x1b5fc270c</code> with <code>blr</code>, which <a href=https://developer.arm.com/documentation/dui0802/b/A64-General-Instructions/BLR class=inline target=_blank>branches to a function call</a>. We can set a breakpoint here with <code>b 0x1b5fc270c</code> and then trigger this code with <code>xcrun simctl openurl booted "shortcuts://create-automation"</code>.</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/21.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/21.png></a></p>
+<p>When the breakpoint fires we can call <code>p/x $x21</code> to see the register of the function we're about to call in hex, in this case <code>0x00000001b5fcbe74</code>. We can find with binary this is in with <code>image lookup --address 0x00000001b5fcbe74</code> (pointing us to <code>WorkflowUI</code>). This takes us to <code>sub_69e74</code> which is another jump function, and following a similar breakpoint strategy at the <code>blr</code> call on <code>0x1b5fc3d20</code> points us towards <code>0x102736c7c</code> in Shortcuts. This maps to an invocation of <code>WorkflowUI.RootView.navigate(to:with:)</code>. This shows the screen to create an automation, but unfortunately only handles presenting a specific view without taking in any additional arguments (like pre-selecting specific triggers).</p>
+<p><a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/23.png><img src=data:, alt data-sf-original-src=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/23.png></a></p>
+<p>This was by far our best chance, so we're grasping at straws<span class=sidenote-wrapper role=note>
+<sup class=sidenote-indicator id=fnref1:straws>28</sup>
+<span class="sidenote even-sidenote sf-hidden" data-footnote-index=28></span>
+</span> for the remaining actions. Just to make sure, we can take a cursory look at the others. <strong>home</strong> and <strong>automations</strong> do the same thing as <strong>create-automation</strong>, deeplinking to a specific tab. <strong>shortcuts</strong> and <strong>gallery</strong> do very similar things, but allow for <code>subaction</code> customization (which shortcut, and which subsection of the gallery). I didn't dig into <strong>app</strong>, <strong>app-shortcut-create-workflow</strong> or <strong>app-shortcut-add-home-screen</strong> because they didn't help me solve my base problem, though we can now run a smarter version of <code>strings</code> from the beginning across all of the relevant frameworks to see some examples using <code>bundleID</code> for the latter two.</p>
+<div class=code-toolbar><pre class=language-bash tabindex=0><code class=language-bash><span class="token assign-left variable">STRINGS</span><span class="token operator">=</span><span class="token variable"><span class="token variable">$(</span>xcrun <span class="token parameter variable">-f</span> strings<span class="token variable">)</span></span>
+<span class="token function">find</span> <span class="token string">"/Library/Developer/CoreSimulator/Volumes/iOS_21E213/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.4.simruntime/Contents/Resources/RuntimeRoot/"</span> <span class="token punctuation">\</span>
+  <span class="token parameter variable">-type</span> f <span class="token punctuation">\</span><span class="token punctuation">(</span> <span class="token parameter variable">-path</span> <span class="token string">'*Shortcuts*'</span> <span class="token parameter variable">-o</span> <span class="token parameter variable">-path</span> <span class="token string">'*Workflow*'</span> <span class="token punctuation">\</span><span class="token punctuation">)</span> <span class="token parameter variable">-print0</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+  <span class="token function">xargs</span> <span class="token parameter variable">-0</span> <span class="token function">file</span> <span class="token parameter variable">--mime</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+  <span class="token function">grep</span> <span class="token string">'application/x-mach-binary'</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+  <span class="token function">cut</span> -d: <span class="token parameter variable">-f1</span> <span class="token operator">|</span> <span class="token punctuation">\</span>
+  <span class="token keyword">while</span> <span class="token assign-left variable"><span class="token environment constant">IFS</span></span><span class="token operator">=</span> <span class="token builtin class-name">read</span> <span class="token parameter variable">-r</span> path<span class="token punctuation">;</span> <span class="token keyword">do</span>
+    <span class="token string">"<span class="token variable">$STRINGS</span>"</span> <span class="token string">"<span class="token variable">$path</span>"</span>
+  <span class="token keyword">done</span> <span class="token operator">|</span> <span class="token function">grep</span> <span class="token string">'://'</span> <span class="token operator">|</span> <span class="token function">sort</span> <span class="token operator">|</span> <span class="token function">uniq</span>
+
+shortcuts://app-shortcut-add-home-screen?bundleID<span class="token operator">=</span>
+shortcuts://app-shortcut-create-workflow?bundleID<span class="token operator">=</span>
+shortcuts://automations
+shortcuts://create-workflow?source<span class="token operator">=</span>3d_touch
+shortcuts://gallery
+shortcuts://open-shortcut?id<span class="token operator">=</span>%@
+shortcuts://open-shortcut?name<span class="token operator">=</span>
+shortcuts://run-app-shortcut
+shortcuts://x-callback-url/run-shortcut?name<span class="token operator">=</span>%@<span class="token operator">&amp;</span><span class="token assign-left variable">id</span><span class="token operator">=</span>%@%@</code></pre><div class=toolbar><div class=toolbar-item><span>Bash</span></div><div class=toolbar-item><button class=copy-to-clipboard-button type=button data-copy-state=copy><span>Copy</span></button></div></div></div>
+<p>None of these were relevant, so we're out of luck.</p>
+<h2 id=conclusion>Conclusion</h2>
+<p>Can you import or programmatically create automations through deeplinks? It seems like no 😢. There are some potential affordances for <em>shortcut</em> importing (though you can also do this directly through iCloud file sharing) but automations remain device-specific. Even though I didn't find anything, it was still a fun excuse to build practice with some reverse engineering tools and get more familiar with Obj-C internals for the first time in years (and another thanks to Bryce Bostwick here, <a href="https://www.youtube.com/watch?v=YW3jL2gI9IE" class=inline target=_blank>whose</a> <a href="https://www.youtube.com/watch?v=SpHl5_0n3Ps" class=inline target=_blank>videos</a> <a href="https://www.youtube.com/watch?v=KDVibKGtSVI" class=inline target=_blank>reignited</a> <a href="https://www.youtube.com/watch?v=vohvFpjNBz8" class=inline target=_blank>this</a> <a href="https://www.youtube.com/watch?v=ih6gWZDuNME" class=inline target=_blank>flame</a> <a href="https://www.youtube.com/watch?v=NdJ_y1c_j_I" class=inline target=_blank>again</a>).</p>
+<p>There's one final lead. As part of this investigation I found the SQLite database that backs this (<code>[[WFDatabase defaultDatabase] fileURL]</code> points to <code>/data/Library/Shortcuts/Shortcuts.sqlite</code>) where the <code>ZTRIGGER</code> table stores the automations. With a jailbroken device you could modify this directly, but for stock iPhones I think there's no better option than manually create them. Check out <a href=https://blog.alexbeals.com/posts/make-your-phone-grayscale class=inline target=_blank>the next post</a> for a quick overview on how to do that!</p>
+<canvas id=confetti-canvas></canvas>
+<div class=footnotes>
+<hr>
+<ol>
+<li id=fn:jailbreak-rip>
+<p><a href=https://theapplewiki.com/wiki/Jailbreak#Latest_firmware_and_Jailbreak_status class=inline target=_blank>Jailbreaking has pretty much died</a>, rest in peace. (You can also see this in the trendline for <a data-fancybox=gallery href=https://blog.alexbeals.com/images/reverse-engineering-ios-deeplinking-for-shortcuts/16.png class=inline>the downloads of my tweaks over time</a>).&nbsp;<a href=#fnref1:jailbreak-rip rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:spoiler>
+<p>Alright, the short answer is you can't. Go click over to the <a href=https://blog.alexbeals.com/posts/make-your-phone-grayscale class=inline target=_blank>manual setup writeup</a>. Unless you're an Apple engineer, in which case please add a 'Select All' affordance to the Shortcuts app automation screen.&nbsp;<a href=#fnref1:spoiler rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:years>
+<p>God, has it really been 8 years?&nbsp;<a href=#fnref1:years rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:version>
+<p>If it matters, I'm using Simulator v16.0 (bundled with v16.1 of Xcode) for iOS 17.4 on an iPhone 15 Pro. If you can't find Simulator in Spotlight it's at <code>/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app</code>.&nbsp;<a href=#fnref1:version rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:nomatches>
+<p>Note that for deeplinks with query parameters like <code>source</code> you need to wrap the string in quotes, or you'll get a "no matches found" error.&nbsp;<a href=#fnref1:nomatches rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:deeplink-schemes>
+<p>If they're not showing up in <code>strings</code> you can find them in the "URL Schemes" section under "URL type" in the <code>Info.plist</code> file within <code>Shortcuts.app</code> (or check out <a href=https://blog.ericturner.it/2022/04/01/finding-x-callback-url-deep-link-of-ios-apps/#Example_2_%E2%80%93_Shortcuts_App class=inline target=_blank>this blog for non-native apps</a>).&nbsp;<a href=#fnref1:deeplink-schemes rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:apple-debugger>
+<p>This description is a little debatable, but I <a href=https://en.wikipedia.org/wiki/Chris_Lattner#LLVM,_Clang_and_related_projects class=inline target=_blank>think it's accurate</a>. Thanks Chris.&nbsp;<a href=#fnref1:apple-debugger rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:mismatch>
+<p>This uses the PID from the <code>ps</code> call higher up. Heads up that the PIDs that show up in screenshots and videos may change, as I'm closing and reopening the app while doing this writeup.&nbsp;<a href=#fnref1:mismatch rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:colors>
+<p>Ironically enough this section is probably illegible in grayscale, sorry about that. Toggle it off! Revel in the colors!&nbsp;<a href=#fnref1:colors rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:bshortcut>
+<p><code>breakpoint set</code> can be shortened to <code>br s</code> or just <code>b</code> in <code>lldb</code>.&nbsp;<a href=#fnref1:bshortcut rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:cshortcut>
+<p>Or <code>con</code> or <code>c</code>.&nbsp;<a href=#fnref1:cshortcut rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:btshortcut>
+<p>Or <code>bt</code>.&nbsp;<a href=#fnref1:btshortcut rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:free>
+<p>And also it has a free demo, compared to IDA Pro's whopping <a href=https://hex-rays.com/pricing class=inline target=_blank>$1,099+ per year</a>. The annoying downside of this is that it only works for 30 minutes at a time, which means I got <em>very</em> quick at resetting up my window state.&nbsp;<a href=#fnref1:free rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:defaults>
+<p>FAT Archive, and AArch64, with the Mach-O AArch64 loader.&nbsp;<a href=#fnref1:defaults rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:gba-ace>
+<p>This was first introduced <a href="https://www.openbsd.org/34.html#:~:text=ld.so,buffer%20overflow" class=inline target=_blank>circa 2003</a> and so notably <em>doesn't</em> happen for many GBA games, which is what makes <a href=https://archives.glitchcity.info/forums/board-108/thread-8126/page-0.html class=inline target=_blank>arbitrary code execution in Pokemon Silver</a> easier than in <a href=https://glitchcity.wiki/wiki/ASLR class=inline target=_blank>late Gen III and beyond</a>.&nbsp;<a href=#fnref1:gba-ace rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:hexmath>
+<p>You can evaluate this directly in <code>lldb</code> with <code>p/x 0x100000000 + 0x2af4000</code>, or just use an online Hex calculator. I'd say that just searching it in Google would do it, but it routes more and more math to Gemini, and <a href=https://x.com/GamesEarlPwns/status/1922426953379787086 class=inline target=_blank>Gemini is...unreliable at best</a>.&nbsp;<a href=#fnref1:hexmath rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:ipsw>
+<p>The <a href="https://www.youtube.com/watch?v=KDVibKGtSVI&amp;t=3m5s" class=inline target=_blank>video that encouraged me to do some of this digging</a> actually pulls it from the <code>dyld_shared_cache</code> in an extracted IPSW file using <a href=https://blacktop.github.io/ipsw/ class=inline target=_blank>Blacktop</a>. In the case of <code>Shortcuts</code>, just using the simulator file is easier.&nbsp;<a href=#fnref1:ipsw rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:libraries>
+<p>The offsets for the libraries don't seem to change for me. Not sure if this will be constant for other simulators or Macs, but if you calculate this once you can likely keep using it.&nbsp;<a href=#fnref1:libraries rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:frame4reference>
+<p>The address from frame #4 from the <a href=#frame4 class=inline>previous stack trace</a>.&nbsp;<a href=#fnref1:frame4reference rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:voiceover>
+<p>Hopefully that's true without me voicing over everything that I did. This is a situation where the written blog medium really suffers compared to video, which is why all of <a href=https://www.youtube.com/@brycedotco/videos class=inline target=_blank>Bryce's stuff is so great</a>. Go check him out!&nbsp;<a href=#fnref1:voiceover rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:line-numbers>
+<p>Explaining this would be a lot easier if Hopper's decompiled pseudocode window had line numbers.&nbsp;<a href=#fnref1:line-numbers rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:evernote>
+<p>You can see some other schemes for <code>en-team146</code> (Evernote) and <code>pocketapp36486</code> (Pocket) as holdovers from <a href=https://techcrunch.com/2017/03/22/apple-has-acquired-workflow-a-powerful-automation-tool-for-ipad-and-iphone/ class=inline target=_blank>the Workflow acquisition back in 2017</a>. The <a href=https://gist.github.com/dado3212/3fa76f314b37652f78a5d430794ea0cc class=inline target=_blank>full list of supported schemes</a> also includes other clear and legible options such as <code>db-i0cvbg4s5rzbeys://</code>.&nbsp;<a href=#fnref1:evernote rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:bet>
+<p>Clearly the good money's on <strong>create-automation</strong>, but I went for completeness.&nbsp;<a href=#fnref1:bet rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:outoforder>
+<p>Mainly because it works with this one, but not with the first few. There's always a bit of history rewriting when turning two days of investigation into a single writeup, but hindsight is 20/20 (or <a href=https://en.wikipedia.org/wiki/Snellen_chart#%226/6%22(m)_or_%2220/20%22(ft)_vision class=inline target=_blank>6/6</a>!) and it'd be a waste to not use that to structure stuff better.&nbsp;<a href=#fnref1:outoforder rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:open-option>
+<p>I'll admit that this starts getting into decompiled Swift code, which is <em>hellish</em>. Not sure if there are tricks to make reverse engineering Swift easier, but if there are, I'm not well versed enough in them. Definitely could have missed something here.&nbsp;<a href=#fnref1:open-option rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:irrelevant>
+<p>None of these pointers are useful for us, but including here as a searchable reference to some future sap if they want to pull on these threads.&nbsp;<a href=#fnref1:irrelevant rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:bp-warning>
+<p>Because the code hasn't initialized you'll get a "WARNING: Unable to resolve breakpoint to any actual locations." when running <code>b -n</code>. You can ignore this, as the locations will be loaded as the app finishes loading.&nbsp;<a href=#fnref1:bp-warning rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+<li id=fn:straws>
+<p>Unrelated aside, but in my head this was literal plastic straws (though I'll admit I've never given it much thought). A lot of people cite this as dating back to Thomas Moore in 1534 (over 4 centuries before plastic straws came on the scene), but <a href="https://ccel.org/ccel/more/comfort/comfort.ii.iii.html#:~:text=He%20who%20in%20tribulation,simple%20a%20stick." class=inline target=_blank>his original reference uses a stick</a>, only changing to 'straw' in 1583 in John Prime's succinctly titled treatise <a href="https://quod.lib.umich.edu/e/eebo2/A10112.0001.001?rgn=main;view=fulltext#:~:text=And%20because%20we%20finde,euery%20straw" class=inline target=_blank>"A fruitefull and briefe discourse in two bookes: the one of nature, the other of grace with conuenient aunswer to the enemies of grace, vpon incident occasions offered by the late Rhemish notes in their new translation of the new Testament, &amp; others"</a>. &nbsp;<a href=#fnref1:straws rev=footnote class=footnote-backref>↩︎</a></p>
+</li>
+</ol>
+</div> </article>
+ 
+ <form id=comment class=form-horizontal role=form method=post action=/posts/reverse-engineering-ios-deeplinking-for-shortcuts#comment>
+ 
+ <input name=name id=name type=text placeholder="Your name" class=form-control value> <input name=email id=email type=email placeholder="Your email (won’t be published)" class=form-control value> <textarea name=text id=text placeholder="Your comment" class=form-control></textarea><br>
+ 
+ <div class=g-recaptcha data-sitekey=6Lcg7iIUAAAAAPLDHLmj5YgjkJfH_RJz4h4ZyAAB></div>
+ <button class="btn btn-default">Post Comment</button>
+ </form>
+ 
+ 
+ <div id=previousPosts class=page>
+ <h3 class=year>Next</h3><a class=articleLink href=https://blog.alexbeals.com/posts/make-your-phone-grayscale title="Make Your Phone Grayscale"><span class=name>Make Your Phone Grayscale</span><span class="date sf-hidden">May 23, 2025</span></a><h3 class=year>Previous</h3><a class=articleLink href=https://blog.alexbeals.com/posts/extracting-letterboxd-tokens-with-mitmproxy title="Getting access to the Letterboxd API with mitmproxy"><span class=name>Getting access to the Letterboxd API with mitmproxy</span><span class="date sf-hidden">April 14, 2025</span></a><h3 class=year>Recent</h3><a class=articleLink href=https://blog.alexbeals.com/posts/debugging-fitness-sf-qr title="Debugging the changing QR codes for Fitness SF"><span class=name>Debugging the changing QR codes for Fitness SF</span><span class="date sf-hidden">June 20, 2025</span></a><a class=articleLink href=https://blog.alexbeals.com/posts/make-your-phone-grayscale title="Make Your Phone Grayscale"><span class=name>Make Your Phone Grayscale</span><span class="date sf-hidden">May 23, 2025</span></a><a class=articleLink href=https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts title="Reverse engineering iOS Shortcuts deeplinks"><span class=name>Reverse engineering iOS Shortcuts deeplinks</span><span class="date sf-hidden">May 23, 2025</span></a><a class=articleLink href=https://blog.alexbeals.com/posts/extracting-letterboxd-tokens-with-mitmproxy title="Getting access to the Letterboxd API with mitmproxy"><span class=name>Getting access to the Letterboxd API with mitmproxy</span><span class="date sf-hidden">April 14, 2025</span></a><a class=articleLink href=https://blog.alexbeals.com/posts/unsubscribing-from-reddit-community-notifications title="Unsubscribing from Reddit Community Notifications"><span class=name>Unsubscribing from Reddit Community Notifications</span><span class="date sf-hidden">March 30, 2025</span></a><a class=articleLink href=https://blog.alexbeals.com/list title="View all"><b>View all</b></a> </div>
+ </main>
+<footer>
+ <div class="container-wide padding-container">
+ <div class=row>
+ <div class=col-md-7>
+ <p> © 2025 Vox Silva - All rights reserved.</p>
+ </div>
+ <div class=col-md-5>
+ <nav>
+ <ul class="nav navbar-nav navbar-right">
+ <li><a href=https://blog.alexbeals.com/feeds/rss>RSS</a></li>
+ <li class=active><a href=https://blog.alexbeals.com/admin title="Manage your site!">Admin area</a></li>
+ <li class=active><a href=https://blog.alexbeals.com/ title="Return to my website!">Home</a></li>
+ </ul>
+ </nav>
+ </div>
+ </div>
+ </div>
+</footer>
+<section id=search class=sf-hidden>
+ 
+ 
+</section>
+<div id=unhabit-root></div><single-file-infobar style="accent-color: initial !important; place-content: initial !important; place-items: initial !important; place-self: initial !important; alignment-baseline: initial !important; animation-composition: initial !important; animation: initial !important; appearance: initial !important; aspect-ratio: initial !important; backdrop-filter: initial !important; backface-visibility: initial !important; background: initial !important; background-blend-mode: initial !important; baseline-shift: initial !important; block-size: initial !important; border-block: initial !important; border: initial !important; border-radius: initial !important; border-collapse: initial !important; border-end-end-radius: initial !important; border-end-start-radius: initial !important; border-inline: initial !important; border-start-end-radius: initial !important; border-start-start-radius: initial !important; inset: initial !important; box-shadow: initial !important; box-sizing: initial !important; break-after: initial !important; break-before: initial !important; break-inside: initial !important; buffered-rendering: initial !important; caption-side: initial !important; caret-color: initial !important; clear: initial !important; clip: initial !important; clip-path: initial !important; clip-rule: initial !important; color: initial !important; color-interpolation: initial !important; color-interpolation-filters: initial !important; color-scheme: initial !important; column-count: initial !important; column-fill: initial !important; gap: initial !important; column-rule-color: initial !important; column-rule-style: initial !important; column-rule-width: initial !important; column-span: initial !important; column-width: initial !important; contain: initial !important; contain-intrinsic-block-size: initial !important; contain-intrinsic-size: initial !important; contain-intrinsic-inline-size: initial !important; container-name: initial !important; container-type: initial !important; content: initial !important; content-visibility: initial !important; counter-increment: initial !important; counter-reset: initial !important; counter-set: initial !important; cursor: initial !important; cx: initial !important; cy: initial !important; direction: initial !important; display: initial !important; dominant-baseline: initial !important; empty-cells: initial !important; fill: initial !important; fill-opacity: initial !important; fill-rule: initial !important; filter: initial !important; flex: initial !important; flex-flow: initial !important; float: initial !important; flood-color: initial !important; flood-opacity: initial !important; font-family: initial !important; font-feature-settings: initial !important; font-kerning: initial !important; font-optical-sizing: initial !important; font-palette: initial !important; font-size: initial !important; font-size-adjust: initial !important; font-style: initial !important; font-synthesis-small-caps: initial !important; font-synthesis-style: initial !important; font-synthesis-weight: initial !important; font-variant-alternates: initial !important; font-variant-caps: initial !important; font-variant-east-asian: initial !important; font-variant-ligatures: initial !important; font-variant-numeric: initial !important; font-variant-position: initial !important; font-variation-settings: initial !important; font-weight: initial !important; font-width: initial !important; glyph-orientation-horizontal: initial !important; glyph-orientation-vertical: initial !important; grid: initial !important; grid-column-end: initial !important; grid-column-start: initial !important; grid-row-end: initial !important; grid-row-start: initial !important; hanging-punctuation: initial !important; height: initial !important; hyphenate-character: initial !important; hyphens: initial !important; image-orientation: initial !important; image-rendering: initial !important; inline-size: initial !important; inset-block: initial !important; inset-inline: initial !important; isolation: initial !important; letter-spacing: initial !important; lighting-color: initial !important; line-break: initial !important; line-height: initial !important; list-style: initial !important; margin-block: initial !important; margin: initial !important; margin-inline: initial !important; margin-trim: initial !important; marker: initial !important; mask: initial !important; mask-composite: initial !important; mask-mode: initial !important; mask-size: initial !important; mask-type: initial !important; math-style: initial !important; max-block-size: initial !important; max-height: initial !important; max-inline-size: initial !important; max-width: initial !important; min-block-size: initial !important; min-height: initial !important; min-inline-size: initial !important; min-width: initial !important; mix-blend-mode: initial !important; object-fit: initial !important; object-position: initial !important; offset-anchor: initial !important; offset-distance: initial !important; offset-path: initial !important; offset-position: initial !important; offset-rotate: initial !important; opacity: initial !important; order: initial !important; orphans: initial !important; outline: initial !important; outline-offset: initial !important; overflow-wrap: initial !important; overflow: initial !important; overscroll-behavior-block: initial !important; overscroll-behavior-inline: initial !important; overscroll-behavior: initial !important; padding-block: initial !important; padding: initial !important; padding-inline: initial !important; paint-order: initial !important; perspective: initial !important; perspective-origin: initial !important; pointer-events: initial !important; position: initial !important; print-color-adjust: initial !important; quotes: initial !important; r: initial !important; resize: initial !important; rotate: initial !important; ruby-align: initial !important; ruby-overhang: initial !important; ruby-position: initial !important; rx: initial !important; ry: initial !important; scale: initial !important; scroll-behavior: initial !important; scroll-margin-block: initial !important; scroll-margin: initial !important; scroll-margin-inline: initial !important; scroll-padding-block: initial !important; scroll-padding: initial !important; scroll-padding-inline: initial !important; scroll-snap-align: initial !important; scroll-snap-stop: initial !important; scroll-snap-type: initial !important; scrollbar-gutter: initial !important; scrollbar-width: initial !important; shape-image-threshold: initial !important; shape-margin: initial !important; shape-outside: initial !important; shape-rendering: initial !important; speak-as: initial !important; stop-color: initial !important; stop-opacity: initial !important; stroke: initial !important; stroke-color: initial !important; stroke-dasharray: initial !important; stroke-dashoffset: initial !important; stroke-linecap: initial !important; stroke-linejoin: initial !important; stroke-miterlimit: initial !important; stroke-opacity: initial !important; stroke-width: initial !important; tab-size: initial !important; table-layout: initial !important; text-align: initial !important; text-align-last: initial !important; text-anchor: initial !important; text-autospace: initial !important; text-box: initial !important; text-combine-upright: initial !important; text-decoration-color: initial !important; text-decoration: initial !important; text-decoration-skip-ink: initial !important; text-decoration-style: initial !important; text-decoration-thickness: initial !important; text-emphasis-color: initial !important; text-emphasis-position: initial !important; text-emphasis-style: initial !important; text-indent: initial !important; text-orientation: initial !important; text-overflow: initial !important; text-rendering: initial !important; text-shadow: initial !important; text-transform: initial !important; text-underline-offset: initial !important; text-underline-position: initial !important; text-wrap: initial !important; touch-action: initial !important; transform: initial !important; transform-box: initial !important; transform-origin: initial !important; transform-style: initial !important; transition: initial !important; translate: initial !important; unicode-bidi: initial !important; vector-effect: initial !important; vertical-align: initial !important; view-transition-class: initial !important; view-transition-name: initial !important; visibility: initial !important; white-space: initial !important; widows: initial !important; width: initial !important; will-change: initial !important; word-break: initial !important; word-spacing: initial !important; writing-mode: initial !important; x: initial !important; y: initial !important; z-index: initial !important; zoom: initial !important; -apple-pay-button-style: initial !important; -apple-pay-button-type: initial !important; border-spacing: initial !important; -webkit-box-align: initial !important; -webkit-box-decoration-break: initial !important; -webkit-box-direction: initial !important; -webkit-box-flex: initial !important; -webkit-box-flex-group: initial !important; -webkit-box-lines: initial !important; -webkit-box-ordinal-group: initial !important; -webkit-box-orient: initial !important; -webkit-box-pack: initial !important; -webkit-box-reflect: initial !important; -webkit-column-axis: initial !important; -webkit-column-progression: initial !important; -webkit-cursor-visibility: initial !important; -webkit-font-smoothing: initial !important; -webkit-hyphenate-limit-after: initial !important; -webkit-hyphenate-limit-before: initial !important; -webkit-hyphenate-limit-lines: initial !important; -webkit-initial-letter: initial !important; -webkit-line-align: initial !important; -webkit-line-box-contain: initial !important; -webkit-line-clamp: initial !important; -webkit-line-grid: initial !important; -webkit-line-snap: initial !important; -webkit-locale: initial !important; -webkit-nbsp-mode: initial !important; -webkit-overflow-scrolling: initial !important; -webkit-rtl-ordering: initial !important; -webkit-tap-highlight-color: initial !important; -webkit-text-fill-color: initial !important; -webkit-text-security: initial !important; -webkit-text-size-adjust: initial !important; -webkit-text-stroke-color: initial !important; -webkit-text-stroke-width: initial !important; -webkit-text-zoom: initial !important; -webkit-touch-callout: initial !important; -webkit-user-drag: initial !important; -webkit-user-modify: initial !important; -webkit-user-select: initial !important;"><template shadowrootmode=open><div><style>.infobar,.infobar .infobar-icon,.infobar .infobar-link-icon {min-inline-size:28px;min-block-size:28px;box-sizing:border-box;}.infobar,.infobar .infobar-close-icon,.infobar .infobar-link-icon {opacity:0.7;transition:opacity 250ms;}.infobar:hover,.infobar .infobar-close-icon:hover,.infobar .infobar-link-icon:hover {opacity:1;}.infobar,.infobar-content {display:flex;}.infobar {position:fixed;max-height:calc(100% - 32px);top:16px;right:16px;margin-inline-start:16px;margin-block-end:16px;color:#2d2d2d;background-color:#737373;border:2px solid;border-color:#eee;border-radius:16px;z-index:2147483647;animation-name:flash;animation-duration:.5s;animation-timing-function:cubic-bezier(0.39,0.58,0.57,1);animation-delay:1s;animation-iteration-count:2;}.infobar:valid,.infobar:not(:focus-within):not(.infobar-focus) .infobar-content {display:none;}.infobar:focus-within,.infobar.infobar-focus {background-color:#f9f9f9;border-color:#878787;border-radius:8px;opacity:1;transition-property:opacity,background-color,border-color,border-radius,color;}.infobar-content {border:2px solid;border-color:#f9f9f9;border-radius:6px;background-color:#f9f9f9;overflow:auto;}.infobar-content span {font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:18px;word-break:break-word;white-space:pre-wrap;margin-inline:4px;margin-block:4px;}.infobar .infobar-icon,.infobar .infobar-close-icon,.infobar .infobar-link-icon {cursor:pointer;background-position:center;background-repeat:no-repeat;}.infobar .infobar-close-icon,.infobar .infobar-link-icon {align-self:flex-start;}.infobar .infobar-icon {position:absolute;min-inline-size:24px;min-block-size:24px;}@keyframes flash {0%,100% {	background-color:#737373;}50% {	background-color:#dd6a00;}}.infobar:focus-within .infobar-icon,.infobar.infobar-focus .infobar-icon {z-index:-1;background-image:none;margin:4px;}.infobar .infobar-close-icon {min-inline-size:22px;min-block-size:22px;}.infobar .infobar-icon {background-color:transparent;background-size:70%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABABAMAAABYR2ztAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHADIRLMaOHwAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAPUExURQAAAIqKioyNjY2OjvDw8L2y1DEAAAABdFJOUwBA5thmAAAAAWJLR0QB/wIt3gAAAGNJREFUSMdjYCAJsLi4OBCQx6/CBQwIGIDPCBcXAkYQUsACU+AwlBVQHg6Eg5pgZBGOboIJZugDFwRwoJECJCUOhJI1wZwzqmBUwagCuipgIqTABG9h7YIKaKGAURAFEF/6AQAO4HqSoDP8bgAAAABJRU5ErkJggg==);}.infobar .infobar-link-icon {right:4px;background-size:60%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8H+DhhoQAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJJJREFUOI3t070NRCEMA2CnYAOyDyPwpHj/Va7hJ3FzV7zy3ET5JIwoAF6Jk4wzAJAkzxAYG9YRTgB+24wBgKmfrGAKTcEfAY4KRlRoIeBTgKOCERVaCPgU4Khge2GqKOBTgKOCERVaAEC/4PNcnyoSWHpjqkhwKxbcig0Q6AorXYF/+A6eIYD1lVbwG/jdA6/kA2THRAURVubcAAAAAElFTkSuQmCC);}.infobar .infobar-close-icon {appearance:none;background-size:80%;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABAAgMAAADXB5lNAAABhmlDQ1BJQ0MgcHJvZmlsZQAAKJF9kj1Iw0AYht+mSkUrDnYQcchQnSyIijqWKhbBQmkrtOpgcukfNGlIUlwcBdeCgz+LVQcXZ10dXAVB8AfEydFJ0UVK/C4ptIjx4LiH9+59+e67A4RGhalm1wSgapaRisfEbG5VDLyiDwEAvZiVmKkn0osZeI6ve/j4ehfhWd7n/hz9St5kgE8kjjLdsIg3iGc2LZ3zPnGIlSSF+Jx43KACiR+5Lrv8xrnosMAzQ0YmNU8cIhaLHSx3MCsZKvE0cVhRNcoXsi4rnLc4q5Uaa9XJbxjMaytprtMcQRxLSCAJETJqKKMCCxFaNVJMpGg/5uEfdvxJcsnkKoORYwFVqJAcP/gb/O6tWZiadJOCMaD7xbY/RoHALtCs2/b3sW03TwD/M3Cltf3VBjD3SXq9rYWPgIFt4OK6rcl7wOUOMPSkS4bkSH6aQqEAvJ/RM+WAwVv6EGtu31r7OH0AMtSr5Rvg4BAYK1L2use9ezr79u+ZVv9+AFlNcp0UUpiqAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAB3RJTUUH5AsHAB8VC4EQ6QAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJUExURQAAAICHi4qKioTuJAkAAAABdFJOUwBA5thmAAAAAWJLR0QCZgt8ZAAAAJtJREFUOI3NkrsBgCAMRLFwBPdxBArcfxXFkO8rbKWAAJfHJ9faf9vuYX/749T5NmShm3bEwbe2SxeuM4+2oxDL1cDoKtVUjRy+tH78Cv2CS+wIiQNC1AEhk4AQeUTMWUJMfUJMSEJMSEY8kIx4IONroaYAimNxsXp1PA7PxwfVL8QnowwoVC0lig07wDDVUjAdbAnjwtow/z/bDW7eI4M2KruJAAAAAElFTkSuQmCC);}.infobar { top:16px; bottom:auto; }.infobar { right:16px; left:auto; }</style><form class="infobar"><span tabindex="-1" class="infobar-icon"></span><span tabindex="-1" class="infobar-content"><input type="checkbox" required="" class="infobar-close-icon" title="Close"><span>Mon Jun 23 2025 08:08:02 GMT-0300 (Brasilia Standard Time)</span><a class="infobar-link-icon" target="_blank" rel="noopener noreferrer" title="Open source URL: https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts" href="https://blog.alexbeals.com/posts/reverse-engineering-ios-deeplinking-for-shortcuts"></a></span></form><script>function Wo(n,{saveUrl:e,infobarContent:t,saveDate:a}){if(e){const o=n.querySelector("single-file-infobar").shadowRoot;o.querySelector(".infobar-content span").textContent=t||a;const i=o.querySelector(".infobar-content .infobar-link-icon");i.href=e,i.title="Open source URL: "+e}};function Ho(n,e=No){const t=n.evaluate("//comment()",n,null,XPathResult.FIRST_ORDERED_NODE_TYPE,null);let a=t&&t.singleNodeValue;if(a&&a.nodeType==Node.COMMENT_NODE&&a.textContent.includes(e)){const n=a.textContent.split("\n"),[,,e,...t]=n,o=e.match(/^ url: (.*) ?$/),i=o&&o[1];if(i){let n,e;if(t.length&&(e=t[0].split("saved date: ")[1],e&&t.shift(),t.length>1)){let e=t[0].split("info: ")[1].trim();for(let n=1;n<t.length-1;n++)e+="\n"+t[n].trim();n=e.trim()}return{saveUrl:i,infobarContent:n,saveDate:e}}}};(function Go(n,e){const t=Ho(n,e);t&&t.saveUrl&&Wo(n,t)})(document, "SingleFile");</script></div></template></single-file-infobar><script data-template-shadow-root>(()=>{document.currentScript.remove();processNode(document);function processNode(node){node.querySelectorAll("template[shadowrootmode]").forEach(element=>{let shadowRoot = element.parentElement.shadowRoot;if (!shadowRoot) {try {shadowRoot=element.parentElement.attachShadow({mode:element.getAttribute("shadowrootmode"),delegatesFocus:element.getAttribute("shadowrootdelegatesfocus")!=null,clonable:element.getAttribute("shadowrootclonable")!=null,serializable:element.getAttribute("shadowrootserializable")!=null});shadowRoot.innerHTML=element.innerHTML;element.remove()} catch (error) {} if (shadowRoot) {processNode(shadowRoot)}}})}})()</script>
